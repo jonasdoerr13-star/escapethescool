@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<title>Escape School</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05070c;
+    font-family:'Segoe UI',system-ui,sans-serif;color:#e8eef7;user-select:none;
+    touch-action:none;overscroll-behavior:none}
+  canvas{display:block}
+  #app{position:fixed;inset:0}
+  #vignette{position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,.6) 100%)}
+
+  #minimap{position:fixed;top:12px;left:12px;border-radius:12px;
+    background:rgba(8,12,20,.75);border:1px solid rgba(120,170,255,.25);
+    box-shadow:0 8px 30px rgba(0,0,0,.6);backdrop-filter:blur(6px);z-index:20;
+    width:220px;height:96px;transition:width .3s,height .3s}
+  #floorLabel{position:fixed;top:116px;left:12px;z-index:20;font-size:11px;
+    letter-spacing:1.5px;color:#8fb6ff;text-shadow:0 0 10px rgba(90,150,255,.7);
+    background:rgba(8,12,20,.75);padding:4px 10px;border-radius:8px;
+    border:1px solid rgba(120,170,255,.25);transition:.3s}
+
+  #objective{position:fixed;top:12px;right:12px;max-width:240px;z-index:20;
+    background:rgba(8,12,20,.78);border:1px solid rgba(120,170,255,.25);
+    border-left:3px solid #4d8dff;border-radius:10px;padding:10px 14px;
+    font-size:13px;line-height:1.45;box-shadow:0 8px 30px rgba(0,0,0,.6);
+    transition:.3s}
+  #objective .t{font-size:10px;letter-spacing:2px;color:#6f9dff;margin-bottom:3px}
+
+  #dialogue{position:fixed;left:50%;bottom:180px;transform:translateX(-50%) translateY(20px);
+    width:min(760px,92vw);z-index:25;opacity:0;transition:.3s;pointer-events:none;
+    background:linear-gradient(180deg,rgba(10,16,26,.94),rgba(6,10,18,.96));
+    border:1px solid rgba(120,170,255,.3);border-radius:14px;padding:14px 18px;
+    box-shadow:0 14px 50px rgba(0,0,0,.7)}
+  #dialogue.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #speaker{font-size:11px;letter-spacing:2px;color:#6f9dff;margin-bottom:5px}
+  #dtext{font-size:15px;line-height:1.5}
+
+  #prompt{position:fixed;left:50%;top:52%;transform:translateX(-50%);z-index:22;
+    background:rgba(8,12,20,.85);border:1px solid rgba(120,170,255,.4);
+    border-radius:10px;padding:8px 16px;font-size:14px;opacity:0;transition:.15s;
+    pointer-events:none;white-space:nowrap}
+  #prompt.show{opacity:1}
+  #prompt b{color:#7fb0ff}
+
+  #controls{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:21;
+    background:rgba(8,12,20,.7);border:1px solid rgba(120,170,255,.2);
+    border-radius:10px;padding:8px 16px;font-size:12px;letter-spacing:1px;
+    color:#8fb6ff;transition:opacity .5s;text-align:center;white-space:nowrap}
+  #controls b{color:#cfe0ff;background:rgba(90,150,255,.18);
+    padding:1px 6px;border-radius:4px;margin:0 2px}
+
+  #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;
+    transition:opacity .35s;z-index:40}
+
+  #menu{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:22px;padding:20px;
+    background:radial-gradient(ellipse at 50% 30%,#16243d 0%,#070a12 65%,#03050a 100%)}
+  #menu h1{font-size:clamp(30px,8vw,96px);letter-spacing:5px;font-weight:800;
+    background:linear-gradient(180deg,#dbe9ff,#5d8bff);-webkit-background-clip:text;
+    background-clip:text;color:transparent;filter:drop-shadow(0 0 28px rgba(80,140,255,.55));
+    text-align:center;line-height:1.1}
+  #menu .sub{color:#7f96b8;letter-spacing:4px;font-size:11px;margin-top:-14px}
+  .chapter{width:min(430px,88vw);padding:14px 20px;border-radius:12px;cursor:pointer;
+    border:1px solid rgba(120,170,255,.3);background:rgba(15,24,40,.7);
+    display:flex;justify-content:space-between;align-items:center;transition:.2s}
+  .chapter:hover{background:rgba(30,55,100,.8);border-color:#5d8bff;transform:translateY(-2px)}
+  .chapter .n{font-size:10px;letter-spacing:2px;color:#6f9dff}
+  .chapter .name{font-size:16px;font-weight:600}
+  .chapter.locked{cursor:not-allowed;opacity:.4}
+  .chapter.locked:hover{transform:none;background:rgba(15,24,40,.7);border-color:rgba(120,170,255,.3)}
+
+  #touchUI{position:fixed;inset:0;z-index:30;pointer-events:none;display:none}
+  #touchUI.active{display:block}
+  #joyZone{position:absolute;left:0;bottom:0;width:45%;height:60%;pointer-events:auto}
+  #joyBase{position:absolute;width:120px;height:120px;border-radius:50%;
+    border:2px solid rgba(140,180,255,.35);
+    background:radial-gradient(circle, rgba(20,35,60,.55), rgba(10,18,32,.35));
+    transform:translate(-50%,-50%);opacity:0;transition:opacity .2s;
+    box-shadow:0 0 30px rgba(60,120,255,.25) inset}
+  #joyBase.on{opacity:1}
+  #joyKnob{position:absolute;width:52px;height:52px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #9dc2ff, #4d7dff 70%, #2a4ba8);
+    border:2px solid rgba(200,225,255,.7);
+    transform:translate(-50%,-50%);opacity:0;transition:opacity .2s;
+    box-shadow:0 6px 18px rgba(0,0,0,.5)}
+  #joyKnob.on{opacity:1}
+  #lookZone{position:absolute;right:0;top:0;width:55%;height:100%;
+    pointer-events:auto;z-index:1}
+  #lookHint{position:absolute;right:16px;top:40%;transform:translateY(-50%);
+    font-size:10px;letter-spacing:2px;color:rgba(140,180,255,.4);
+    text-align:right;pointer-events:none;transition:opacity .8s;
+    writing-mode:vertical-rl;text-orientation:mixed}
+  #btnStack{position:absolute;right:16px;bottom:20px;
+    display:flex;flex-direction:column;align-items:flex-end;gap:12px;
+    pointer-events:auto;z-index:3}
+  .tbtn{width:70px;height:70px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, rgba(60,100,180,.85), rgba(20,40,80,.85));
+    border:2px solid rgba(140,180,255,.55);
+    color:#dbe9ff;font-size:13px;font-weight:700;letter-spacing:1px;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 20px rgba(0,0,0,.5), 0 0 20px rgba(80,140,255,.2) inset;
+    transition:transform .08s, background .08s;user-select:none}
+  .tbtn:active,.tbtn.pressed{transform:scale(.92);
+    background:radial-gradient(circle at 35% 30%, rgba(110,160,255,.95), rgba(40,80,160,.95));}
+  .tbtn.small{width:56px;height:56px;font-size:11px}
+  #btnSprint.pressed{background:radial-gradient(circle at 35% 30%, rgba(255,220,120,.9), rgba(180,120,30,.9));border-color:#ffd66b}
+  .tbtn.disabled{opacity:.28}
+  #btnInteract{font-size:20px}
+
+  @media (orientation: portrait){
+    #minimap{width:150px;height:66px;top:10px;left:10px}
+    #floorLabel{top:82px;left:10px;font-size:10px;padding:3px 8px}
+    #objective{max-width:150px;font-size:11px;padding:8px 10px;top:10px;right:10px}
+    #objective .t{font-size:9px;letter-spacing:1.5px}
+    #dialogue{bottom:150px;padding:12px 14px;border-radius:12px}
+    #speaker{font-size:10px}
+    #dtext{font-size:13px;line-height:1.4}
+    #prompt{font-size:12px;padding:6px 12px;top:46%}
+    #btnStack{right:12px;bottom:16px;gap:10px}
+    .tbtn{width:62px;height:62px;font-size:12px}
+    .tbtn.small{width:50px;height:50px;font-size:10px}
+    #btnInteract{font-size:18px}
+    #lookHint{font-size:9px;right:10px}
+    #joyBase{width:110px;height:110px}
+    #joyKnob{width:48px;height:48px}
+    #menu h1{letter-spacing:3px}
+  }
+  @media (orientation: portrait) and (max-width: 400px){
+    #minimap{width:130px;height:58px}
+    #floorLabel{top:72px;font-size:9px}
+    #objective{max-width:130px;font-size:10px;padding:6px 8px}
+    #dtext{font-size:12px}
+    .tbtn{width:56px;height:56px}
+    .tbtn.small{width:46px;height:46px}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="vignette"></div>
+<canvas id="minimap" width="300" height="130"></canvas>
+<div id="floorLabel">STOCK 0</div>
+<div id="objective"><div class="t">ZIEL</div><div id="otext">—</div></div>
+<div id="prompt"></div>
+<div id="dialogue"><div id="speaker"></div><div id="dtext"></div></div>
+<div id="controls">
+  <b>W A S D</b> laufen · <b>Shift</b> rennen · <b>Maus</b>/<b>← ↑ ↓ →</b> umsehen · <b>E</b> interagieren
+</div>
+
+<div id="touchUI">
+  <div id="joyZone">
+    <div id="joyBase"></div>
+    <div id="joyKnob"></div>
+  </div>
+  <div id="lookZone"></div>
+  <div id="lookHint">ZIEHEN · UMSEHEN</div>
+  <div id="btnStack">
+    <div class="tbtn small" id="btnSprint">RENN</div>
+    <div class="tbtn" id="btnInteract">E</div>
+  </div>
+</div>
+
+<div id="fade"></div>
+
+<div id="menu">
+  <h1>ESCAPE SCHOOL</h1>
+  <div class="sub">EIN 3D-ABENTEUER</div>
+  <div class="chapter" id="ch1">
+    <div><div class="n">KAPITEL 1</div><div class="name">Der Regentag</div></div>
+    <div style="font-size:22px;color:#5d8bff">▶</div>
+  </div>
+  <div class="chapter locked" id="ch2">
+    <div><div class="n">KAPITEL 2</div><div class="name">Coming Soon</div></div>
+    <div style="font-size:16px;color:#7f96b8">🔒</div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================================================
+   1. GRUNDGERÜST
+   ============================================================ */
+const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+
+const renderer = new THREE.WebGLRenderer({ antialias:!isTouch, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, isTouch ? 1.75 : 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.getElementById('app').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const SKY = new THREE.Color(0x1a2130);
+scene.background = SKY.clone();
+scene.fog = new THREE.Fog(0x1a2130, 22, 95);
+
+const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, 0.08, 400);
+const world = new THREE.Group();
+scene.add(world);
+
+const hemi = new THREE.HemisphereLight(0x9fb4d0, 0x252a33, 0.75);
+scene.add(hemi);
+const amb = new THREE.AmbientLight(0xffffff, 0.30);
+scene.add(amb);
+const dir = new THREE.DirectionalLight(0xadc6e6, 0.55);
+dir.position.set(-40, 50, 70);
+scene.add(dir);
+
+function updateCameraFov(){
+  const aspect = innerWidth / innerHeight;
+  if(aspect < 1){
+    const hFov = 100 * Math.PI/180;
+    const vFov = 2 * Math.atan(Math.tan(hFov/2) / aspect);
+    camera.fov = Math.min(95, vFov * 180/Math.PI);
+  } else {
+    camera.fov = 68;
+  }
+  camera.updateProjectionMatrix();
+}
+updateCameraFov();
+
+let audioCtx = null;
+function startAudio(){
+  if(audioCtx) return;
+  try{
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const len = audioCtx.sampleRate * 2;
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const f = audioCtx.createBiquadFilter();
+    f.type='bandpass'; f.frequency.value=1400; f.Q.value=0.5;
+    const g = audioCtx.createGain(); g.gain.value = 0.06;
+    src.connect(f).connect(g).connect(audioCtx.destination);
+    src.start();
+  }catch(e){}
+}
+
+/* ============================================================
+   2. GEBÄUDE-DATEN
+   ============================================================ */
+const FLOORS = 3;
+const FH = 4;
+const X0 = -32, X1 = 32;
+const Z0 = -12, Z1 = 12;
+const CORR = 3.5;
+const T = 0.4;
+const RX0 = -26, RX1 = 26, NROOMS = 6;
+const roomW = (RX1-RX0)/NROOMS;
+const roomEdges = [];
+for(let i=0;i<=NROOMS;i++) roomEdges.push(RX0 + i*roomW);
+const roomCenterX = i => RX0 + (i+0.5)*roomW;
+
+const NAMES_N = ["Klassenzimmer 1","Physik","Chemie","Biologie","Musik","Kunstraum"];
+const NAMES_S = ["Mathematik","Deutsch","Englisch","Geschichte","Erdkunde","Bibliothek"];
+
+const colliders = [[],[],[]];
+const rooms = [];
+const stairZones = [];
+const interactables = [];
+
+/* ============================================================
+   3. MATERIALIEN
+   ============================================================ */
+const M = {
+  wall:      new THREE.MeshStandardMaterial({ color:0xdde3ea, roughness:0.96 }),
+  wallOut:   new THREE.MeshStandardMaterial({ color:0xa8b1bd, roughness:0.96 }),
+  slab:      new THREE.MeshStandardMaterial({ color:0x5c636d, roughness:0.95 }),
+  corrFloor: new THREE.MeshStandardMaterial({ color:0x6e767f, roughness:0.9 }),
+  ceil:      new THREE.MeshStandardMaterial({ color:0xeef2f7, roughness:1 }),
+  glass:     new THREE.MeshStandardMaterial({ color:0xa8cdea, transparent:true, opacity:0.16,
+                roughness:0.05, metalness:0.2, side:THREE.DoubleSide }),
+  door:      new THREE.MeshStandardMaterial({ color:0x8a6a48, roughness:0.75 }),
+  doorLock:  new THREE.MeshStandardMaterial({ color:0x5c4630, roughness:0.8 }),
+  light:     new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xfff2d0, emissiveIntensity:1.6 }),
+  desk:      new THREE.MeshStandardMaterial({ color:0xc9a877, roughness:0.8 }),
+  metal:     new THREE.MeshStandardMaterial({ color:0x707a86, roughness:0.5, metalness:0.6 }),
+  stair:     new THREE.MeshStandardMaterial({ color:0x9aa3ad, roughness:0.9 }),
+  board:     new THREE.MeshStandardMaterial({ color:0x1e3a2a, roughness:0.95 }),
+  rail:      new THREE.MeshStandardMaterial({ color:0x3a424e, roughness:0.6, metalness:0.5 }),
+};
+
+/* ============================================================
+   4. BAUMETHODEN
+   ============================================================ */
+function addWall(floor, x1, z1, x2, z2, y0, y1, mat, collide=true){
+  const w = Math.max(Math.abs(x2-x1), 0.01);
+  const d = Math.max(Math.abs(z2-z1), 0.01);
+  const h = y1 - y0;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  mesh.position.set((x1+x2)/2, y0 + h/2, (z1+z2)/2);
+  world.add(mesh);
+  if(collide) colliders[floor].push({
+    x1:Math.min(x1,x2), z1:Math.min(z1,z2),
+    x2:Math.max(x1,x2), z2:Math.max(z1,z2)
+  });
+  return mesh;
+}
+function addLightPanel(x, y, z, w, d){
+  const p = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, d), M.light);
+  p.position.set(x, y, z); world.add(p);
+}
+
+/* Außenwand mit Fenstern — Fenster werden leicht nach außen verschoben,
+   damit neben dem Fenster Platz für die Tafel bleibt */
+const WINDOW_OFFSET = -1.8;   // Versatz der Fenster vom Raumzentrum
+
+function buildOuterWallX(floor, zc, winCenters){
+  const y0 = floor*FH, y1 = y0 + FH;
+  const zA = zc - T/2, zB = zc + T/2;
+  winCenters.sort((a,b)=>a-b);
+  const xs = [X0-0.2];
+  for(const c of winCenters) xs.push(c-1.5, c+1.5);
+  xs.push(X1+0.2);
+  for(let i=0;i<xs.length;i+=2){
+    if(xs[i+1]-xs[i] > 0.01) addWall(floor, xs[i], zA, xs[i+1], zB, y0, y1, M.wallOut);
+  }
+  for(const c of winCenters){
+    addWall(floor, c-1.5, zA, c+1.5, zB, y0, y0+1.1, M.wallOut);
+    addWall(floor, c-1.5, zA, c+1.5, zB, y0+2.9, y1, M.wallOut, false);
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 1.8), M.glass);
+    g.position.set(c, y0+2.0, zc); world.add(g);
+    const fr = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.06, 0.06), M.metal);
+    fr.position.set(c, y0+1.12, zc); world.add(fr);
+    const fr2 = fr.clone(); fr2.position.y = y0+2.88; world.add(fr2);
+    const fr3 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.8, 0.06), M.metal);
+    fr3.position.set(c, y0+2.0, zc); world.add(fr3);
+  }
+}
+function buildOuterWallZ(floor, xc, zc1, zc2){
+  const y0 = floor*FH, y1 = y0 + FH;
+  addWall(floor, xc - T/2, zc1, xc + T/2, zc2, y0, y1, M.wallOut);
+  const zc = (zc1+zc2)/2;
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.8), M.glass);
+  g.position.set(xc, y0+2.1, zc); g.rotation.y = Math.PI/2; world.add(g);
+}
+function buildCorridorWall(floor, zc, doorXs){
+  const y0 = floor*FH, y1 = y0 + FH;
+  const zA = zc - T/2, zB = zc + T/2;
+  doorXs.sort((a,b)=>a-b);
+  const xs = [X0];
+  for(const d of doorXs) xs.push(d-1.1, d+1.1);
+  xs.push(X1);
+  for(let i=0;i<xs.length;i+=2){
+    if(xs[i+1]-xs[i] > 0.01) addWall(floor, xs[i], zA, xs[i+1], zB, y0, y1, M.wall);
+  }
+  for(const d of doorXs){
+    addWall(floor, d-1.1, zA, d+1.1, zB, y0+2.4, y1, M.wall, false);
+    const f1 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, T+0.06), M.door);
+    f1.position.set(d-1.1, y0+1.2, zc); world.add(f1);
+    const f2 = f1.clone(); f2.position.x = d+1.1; world.add(f2);
+  }
+}
+
+/* ============================================================
+   5. SCHULE BAUEN
+   ============================================================ */
+function buildSchool(){
+  for(let f=0; f<FLOORS; f++){
+    const y0 = f*FH;
+
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(X1-X0+1, 0.3, Z1-Z0+1), M.slab);
+    slab.position.set(0, y0-0.15, 0); world.add(slab);
+
+    const cf = new THREE.Mesh(new THREE.BoxGeometry(X1-X0, 0.04, CORR*2), M.corrFloor);
+    cf.position.set(0, y0+0.02, 0); world.add(cf);
+
+    if(f === FLOORS-1){
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(X1-X0+1, 0.3, Z1-Z0+1), M.ceil);
+      roof.position.set(0, y0+FH+0.15, 0); world.add(roof);
+    }
+
+    // Fenster: pro Raum eins, um WINDOW_OFFSET vom Zentrum versetzt
+    const northWin = [], southWin = [];
+    for(let i=0;i<NROOMS;i++){
+      northWin.push(roomCenterX(i) + WINDOW_OFFSET);
+      southWin.push(roomCenterX(i) + WINDOW_OFFSET);
+    }
+    northWin.push(29); northWin.push(-29);
+    southWin.push(29); southWin.push(-29);
+    buildOuterWallX(f, Z1, northWin);
+    buildOuterWallX(f, Z0, southWin);
+    buildOuterWallZ(f, X1, Z0, Z1);
+    buildOuterWallZ(f, X0, Z0, Z1);
+
+    const doors = [];
+    for(let i=0;i<NROOMS;i++) doors.push(roomCenterX(i));
+    buildCorridorWall(f,  CORR, doors);
+    buildCorridorWall(f, -CORR, doors);
+
+    for(let i=0;i<=NROOMS;i++){
+      const x = roomEdges[i];
+      addWall(f, x-T/2, CORR, x+T/2, Z1-T/2, y0, y0+FH, M.wall);
+      addWall(f, x-T/2, Z0+T/2, x+T/2, -CORR, y0, y0+FH, M.wall);
+    }
+
+    for(let i=0;i<NROOMS;i++){
+      rooms.push({ floor:f, x1:roomEdges[i], x2:roomEdges[i+1], z1:CORR, z2:Z1-T/2,
+                   name:NAMES_N[i], side:'N' });
+      rooms.push({ floor:f, x1:roomEdges[i], x2:roomEdges[i+1], z1:Z0+T/2, z2:-CORR,
+                   name:NAMES_S[i], side:'S' });
+    }
+
+    // Deckenlampen
+    for(let x=-28; x<=28; x+=8) addLightPanel(x, y0+FH-0.12, 0, 2.4, 0.5);
+    for(let i=0;i<NROOMS;i++){
+      addLightPanel(roomCenterX(i), y0+FH-0.12, 7.5, 2.2, 0.5);
+      addLightPanel(roomCenterX(i), y0+FH-0.12, -7.5, 2.2, 0.5);
+    }
+
+    // ---- Tafel + Lehrerpult in JEDEM Klassenzimmer ----
+    for(let i=0;i<NROOMS;i++){
+      const cx = roomCenterX(i);
+      // Nordraum (Fensterwand Z1-T/2) - Tafel gegenüber der Tür
+      const bN = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.4, 0.1), M.board);
+      bN.position.set(cx + 1.2, y0 + 2.1, Z1 - T/2 - 0.15);
+      world.add(bN);
+      const pN = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.85, 0.6), M.desk);
+      pN.position.set(cx, y0 + 0.42, Z1 - T/2 - 1.6);
+      world.add(pN);
+
+      // Südraum (Fensterwand Z0+T/2) - Tafel gegenüber der Tür
+      const bS = new THREE.Mesh(new THREE.BoxGeometry(3.0, 1.4, 0.1), M.board);
+      bS.position.set(cx + 1.2, y0 + 2.1, Z0 + T/2 + 0.15);
+      world.add(bS);
+      const pS = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.85, 0.6), M.desk);
+      pS.position.set(cx, y0 + 0.42, Z0 + T/2 + 1.6);
+      world.add(pS);
+    }
+  }
+
+  // ---- Treppenhäuser ----
+  for(const side of [-1, 1]){
+    for(let f=0; f<FLOORS; f++){
+      const sx1 = side < 0 ? X0 : 26;
+      const sx2 = side < 0 ? -26 : X1;
+
+      stairZones.push({
+        floor:f, side,
+        x1: sx1, x2: sx2,
+        z1: -CORR, z2: CORR
+      });
+
+      // Boden-Markierung
+      const mark = new THREE.Mesh(
+        new THREE.PlaneGeometry(5.5, CORR*2-0.4),
+        new THREE.MeshStandardMaterial({ color:0x2b6bff, transparent:true, opacity:0.13 })
+      );
+      mark.rotation.x = -Math.PI/2;
+      mark.position.set(side<0 ? -29 : 29, f*FH+0.05, 0);
+      world.add(mark);
+
+      // Treppen: Richtung KORRIGIERT
+      //   links:  Fuß bei x=-26 (Flurseite), Spitze bei x=-31 (Außenwand)
+      //   rechts: Fuß bei x= 26 (Flurseite), Spitze bei x= 31 (Außenwand)
+      if(f < FLOORS-1){
+        const numSteps = 14;
+        const risePerStep = FH / numSteps;
+        const baseX = side < 0 ? -26 : 26;
+        const topX  = side < 0 ? X0 + 1 : X1 - 1;
+
+        for(let s=0; s<numSteps; s++){
+          const t0 = s / numSteps;
+          const x0 = baseX + (topX - baseX) * t0;
+          const x1 = baseX + (topX - baseX) * ((s+1)/numSteps);
+          const stepX = (x0+x1)/2;
+          const stepW = Math.abs(x1-x0) + 0.02;
+          const stepY = f*FH + t0*FH + risePerStep/2;
+
+          const st = new THREE.Mesh(
+            new THREE.BoxGeometry(stepW, risePerStep, CORR*2 - 0.5),
+            M.stair
+          );
+          st.position.set(stepX, stepY, 0);
+          world.add(st);
+        }
+
+        // Handlauf an den Seiten
+        for(const zs of [-1, 1]){
+          const rail = new THREE.Mesh(
+            new THREE.BoxGeometry(
+              Math.abs(topX - baseX) + 0.2,
+              0.08,
+              0.08
+            ),
+            M.rail
+          );
+          rail.position.set(
+            (baseX + topX) / 2,
+            f*FH + FH/2 + 0.9,
+            zs * (CORR - 0.35)
+          );
+          // Neigung berechnen
+          rail.rotation.z = Math.atan2(FH, Math.abs(topX - baseX)) * (side < 0 ? -1 : 1);
+          world.add(rail);
+        }
+      }
+    }
+  }
+
+  // ---- Verschlossene Türen ----
+  const lockedDoors = [
+    { floor:2, x:roomCenterX(3), z: CORR, name:'Lehrerzimmer' },
+    { floor:1, x:roomCenterX(5), z:-CORR, name:'Bibliothek'  },
+  ];
+  for(const d of lockedDoors){
+    const y0 = d.floor*FH;
+    const door = new THREE.Mesh(new THREE.BoxGeometry(2.1, 2.4, 0.12), M.doorLock);
+    door.position.set(d.x, y0+1.2, d.z); world.add(door);
+    colliders[d.floor].push({ x1:d.x-1.05, z1:d.z-0.35, x2:d.x+1.05, z2:d.z+0.35 });
+    interactables.push({
+      floor:d.floor, x:d.x, z:d.z, r:2.4,
+      label:`Tür öffnen – ${d.name}`,
+      action:()=> say('', 'Abgeschlossen. Diese Tür ist verschlossen.', 2.4)
+    });
+  }
+}
+
+/* ============================================================
+   6. CHARAKTER
+   ============================================================ */
+function makeCharacter(o={}){
+  const g = new THREE.Group();
+  const skin  = new THREE.MeshStandardMaterial({ color:o.skin  ?? 0xe8b58a, roughness:0.85 });
+  const shirt = new THREE.MeshStandardMaterial({ color:o.shirt ?? 0x2f6fb8, roughness:0.9 });
+  const pants = new THREE.MeshStandardMaterial({ color:o.pants ?? 0x2b3342, roughness:0.95 });
+  const hair  = new THREE.MeshStandardMaterial({ color:o.hair  ?? 0x3a2a1e, roughness:0.9 });
+  const shoe  = new THREE.MeshStandardMaterial({ color:o.shoe  ?? 0xeaeaea, roughness:0.75 });
+  const dark  = new THREE.MeshStandardMaterial({ color:0x14181f, roughness:0.5 });
+
+  const hips = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.22,0.26), pants);
+  hips.position.y = 0.92; g.add(hips);
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.50,0.60,0.30), shirt);
+  torso.position.y = 1.32; g.add(torso);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.19,20,16), skin);
+  head.position.y = 1.80; head.scale.set(1,1.08,1); g.add(head);
+
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.202,20,16), hair);
+  cap.position.y = 1.84; cap.scale.set(1,0.78,1.02); g.add(cap);
+  const back = new THREE.Mesh(new THREE.SphereGeometry(0.20,16,12), hair);
+  back.position.set(0,1.80,-0.03); back.scale.set(0.98,0.95,0.98); g.add(back);
+
+  for(const sx of [-1,1]){
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.028,10,8), dark);
+    eye.position.set(sx*0.072, 1.81, 0.172); g.add(eye);
+  }
+
+  function limb(px, py, w, h, mat, matEnd, endSize){
+    const pivot = new THREE.Group();
+    pivot.position.set(px, py, 0);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,w), mat);
+    m.position.y = -h/2; pivot.add(m);
+    const e = new THREE.Mesh(new THREE.BoxGeometry(endSize,endSize,endSize), matEnd);
+    e.position.y = -h - endSize*0.3; pivot.add(e);
+    g.add(pivot);
+    return pivot;
+  }
+  const armL = limb(-0.33, 1.56, 0.14, 0.52, shirt, skin, 0.13);
+  const armR = limb( 0.33, 1.56, 0.14, 0.52, shirt, skin, 0.13);
+  const legL = limb(-0.14, 0.90, 0.17, 0.80, pants, shoe, 0.15);
+  const legR = limb( 0.14, 0.90, 0.17, 0.80, pants, shoe, 0.15);
+  legL.children[1].scale.set(1,0.7,1.9);
+  legR.children[1].scale.set(1,0.7,1.9);
+
+  const bag = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.42,0.18),
+    new THREE.MeshStandardMaterial({ color:o.bag ?? 0x1e2530, roughness:0.9 }));
+  bag.position.set(0,1.34,-0.22); g.add(bag);
+
+  g.userData = { armL, armR, legL, legR, torso, baseY:0 };
+  return g;
+}
+
+function applyPose(ch, sitBlend, animT, speed){
+  const u = ch.userData;
+  const walkAmp = Math.min(speed/4.2, 1) * (1 - sitBlend);
+  const s = Math.sin(animT*11) * walkAmp;
+
+  u.legL.rotation.x = -1.55*sitBlend + s*0.85;
+  u.legR.rotation.x = -1.55*sitBlend - s*0.85;
+  u.armL.rotation.x = -1.15*sitBlend - s*0.70;
+  u.armR.rotation.x = -1.15*sitBlend + s*0.70;
+  u.torso.position.y = 1.32 + Math.abs(Math.sin(animT*11))*0.035*walkAmp;
+  u.torso.rotation.y = -s*0.08;
+
+  ch.position.y = u.baseY - 0.46*sitBlend;
+}
+
+/* ============================================================
+   7. SCHULTISCH (Stuhl hinter dem Tisch = bei kleinerem z)
+   ============================================================ */
+function addDesk(x, z, floor){
+  const y0 = floor*FH;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.25,0.07,0.62), M.desk);
+  top.position.set(x, y0+0.76, z); world.add(top);
+  for(const [dx,dz] of [[-0.52,-0.24],[0.52,-0.24],[-0.52,0.24],[0.52,0.24]]){
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.76,0.06), M.metal);
+    leg.position.set(x+dx, y0+0.38, z+dz); world.add(leg);
+  }
+  // Stuhl hinter dem Tisch (näher am Flur, weg von der Tafel)
+  const chair = new THREE.Mesh(new THREE.BoxGeometry(0.48,0.06,0.48), M.metal);
+  chair.position.set(x, y0+0.46, z - 0.72); world.add(chair);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.48,0.5,0.06), M.metal);
+  back.position.set(x, y0+0.72, z - 0.94); world.add(back);
+}
+
+/* ============================================================
+   8. SPIELER
+   ============================================================ */
+const CX0 = roomCenterX(0);          // Mitte des Spieler-Klassenzimmers
+const PLAYER_ROW_Z = 9.5;            // Tisch der vorderen Reihe
+const PLAYER_DESK_X = CX0;
+const PLAYER_CHAIR_Z = PLAYER_ROW_Z - 0.72;
+
+const player = {
+  x: PLAYER_DESK_X, y: 0, z: PLAYER_CHAIR_Z,
+  floor: 0, rot: 0,                  // blickt zur Tafel (+z)
+  speed: 0,
+  radius: 0.36, char: null,
+  sitBlend: 1, sitTarget: 1,
+  state: 'sitting'
+};
+player.char = makeCharacter({ shirt:0x2f6fb8, pants:0x2b3342, hair:0x3a2a1e, bag:0x1e2530 });
+player.char.userData.baseY = 0;
+world.add(player.char);
+applyPose(player.char, 1, 0, 0);
+
+/* Kamera hinter dem Spieler (also auf -z-Seite), Blickrichtung +z */
+let camYaw = Math.PI, camPitch = 0.22;
+const CAM_DIST = 4.2;
+
+/* ============================================================
+   9. EINGABE
+   ============================================================ */
+const keys = {};
+const input = { moveX:0, moveZ:0, sprint:false };
+
+addEventListener('keydown', e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true;
+  if(e.code === 'KeyE') doInteract();
+});
+addEventListener('keyup', e=> keys[e.code] = false);
+
+if(!isTouch){
+  renderer.domElement.addEventListener('click', ()=>{
+    if(!menuOpen && !document.pointerLockElement) renderer.domElement.requestPointerLock();
+  });
+  addEventListener('mousemove', e=>{
+    if(document.pointerLockElement){
+      camYaw   -= e.movementX * 0.0022;
+      camPitch += e.movementY * 0.0018;
+      camPitch = Math.max(-0.75, Math.min(1.05, camPitch));
+    }
+  });
+}
+
+/* ============================================================
+   10. KOLLISION
+   ============================================================ */
+function pushOut(px, pz, r, c){
+  const cx = Math.max(c.x1, Math.min(px, c.x2));
+  const cz = Math.max(c.z1, Math.min(pz, c.z2));
+  const dx = px-cx, dz = pz-cz;
+  const d2 = dx*dx + dz*dz;
+  if(d2 > r*r) return null;
+  if(d2 > 1e-8){
+    const d = Math.sqrt(d2);
+    return [px + dx/d*(r-d), pz + dz/d*(r-d)];
+  }
+  const left = px-c.x1, right = c.x2-px, top = pz-c.z1, bot = c.z2-pz;
+  const m = Math.min(left,right,top,bot);
+  if(m===left)  return [c.x1-r, pz];
+  if(m===right) return [c.x2+r, pz];
+  if(m===top)   return [px, c.z1-r];
+  return [px, c.z2+r];
+}
+function collide(px, pz, floor){
+  const r = player.radius;
+  for(const c of colliders[floor]){
+    const res = pushOut(px, pz, r, c);
+    if(res){ px = res[0]; pz = res[1]; }
+  }
+  return [px, pz];
+}
+
+/* ============================================================
+   11. UI
+   ============================================================ */
+const elObj = document.getElementById('otext');
+const elFloor = document.getElementById('floorLabel');
+const elPrompt = document.getElementById('prompt');
+const elDia = document.getElementById('dialogue');
+const elSpeaker = document.getElementById('speaker');
+const elDtext = document.getElementById('dtext');
+const elFade = document.getElementById('fade');
+const elControls = document.getElementById('controls');
+
+let menuOpen = true;
+function setObjective(txt){ elObj.textContent = txt; }
+
+let dq = [], dTimer = 0, dActive = false;
+function say(speaker, text, dur=3.5){
+  dq.push({ speaker, text, dur });
+  if(!dActive) nextDialogue();
+}
+function nextDialogue(){
+  if(dq.length === 0){ dActive = false; elDia.classList.remove('show'); return; }
+  dActive = true;
+  const d = dq.shift();
+  elSpeaker.textContent = d.speaker || '';
+  elDtext.textContent = d.text;
+  elDia.classList.add('show');
+  dTimer = d.dur;
+}
+function
