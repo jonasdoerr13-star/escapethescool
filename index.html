@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Escape School</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;overflow:hidden;background:#05070c;
+    font-family:'Segoe UI',system-ui,sans-serif;color:#e8eef7;user-select:none}
+  canvas{display:block}
+  #app{position:fixed;inset:0}
+  #vignette{position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,.6) 100%)}
+
+  #minimap{position:fixed;top:16px;left:16px;border-radius:12px;
+    background:rgba(8,12,20,.75);border:1px solid rgba(120,170,255,.25);
+    box-shadow:0 8px 30px rgba(0,0,0,.6);backdrop-filter:blur(6px);z-index:20}
+  #floorLabel{position:fixed;top:152px;left:16px;z-index:20;font-size:13px;
+    letter-spacing:2px;color:#8fb6ff;text-shadow:0 0 10px rgba(90,150,255,.7);
+    background:rgba(8,12,20,.75);padding:5px 12px;border-radius:8px;
+    border:1px solid rgba(120,170,255,.25)}
+
+  #objective{position:fixed;top:16px;right:16px;max-width:320px;z-index:20;
+    background:rgba(8,12,20,.78);border:1px solid rgba(120,170,255,.25);
+    border-left:3px solid #4d8dff;border-radius:10px;padding:12px 16px;
+    font-size:14px;line-height:1.5;box-shadow:0 8px 30px rgba(0,0,0,.6)}
+  #objective .t{font-size:11px;letter-spacing:2px;color:#6f9dff;margin-bottom:4px}
+
+  #dialogue{position:fixed;left:50%;bottom:60px;transform:translateX(-50%) translateY(20px);
+    width:min(760px,88vw);z-index:25;opacity:0;transition:.3s;pointer-events:none;
+    background:linear-gradient(180deg,rgba(10,16,26,.94),rgba(6,10,18,.96));
+    border:1px solid rgba(120,170,255,.3);border-radius:14px;padding:18px 22px;
+    box-shadow:0 14px 50px rgba(0,0,0,.7)}
+  #dialogue.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #speaker{font-size:12px;letter-spacing:2px;color:#6f9dff;margin-bottom:6px}
+  #dtext{font-size:17px;line-height:1.55}
+
+  #prompt{position:fixed;left:50%;top:58%;transform:translateX(-50%);z-index:22;
+    background:rgba(8,12,20,.85);border:1px solid rgba(120,170,255,.4);
+    border-radius:10px;padding:9px 18px;font-size:15px;opacity:0;transition:.15s}
+  #prompt.show{opacity:1}
+  #prompt b{color:#7fb0ff}
+
+  #controls{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:21;
+    background:rgba(8,12,20,.7);border:1px solid rgba(120,170,255,.2);
+    border-radius:10px;padding:8px 16px;font-size:12px;letter-spacing:1px;
+    color:#8fb6ff;transition:opacity .5s}
+  #controls b{color:#cfe0ff;background:rgba(90,150,255,.18);
+    padding:1px 6px;border-radius:4px;margin:0 2px}
+
+  #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;
+    transition:opacity .35s;z-index:40}
+
+  #menu{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:26px;
+    background:radial-gradient(ellipse at 50% 30%,#16243d 0%,#070a12 65%,#03050a 100%)}
+  #menu h1{font-size:clamp(42px,9vw,96px);letter-spacing:8px;font-weight:800;
+    background:linear-gradient(180deg,#dbe9ff,#5d8bff);-webkit-background-clip:text;
+    background-clip:text;color:transparent;filter:drop-shadow(0 0 28px rgba(80,140,255,.55))}
+  #menu .sub{color:#7f96b8;letter-spacing:5px;font-size:12px;margin-top:-18px}
+  .chapter{width:min(430px,86vw);padding:16px 22px;border-radius:12px;cursor:pointer;
+    border:1px solid rgba(120,170,255,.3);background:rgba(15,24,40,.7);
+    display:flex;justify-content:space-between;align-items:center;transition:.2s}
+  .chapter:hover{background:rgba(30,55,100,.8);border-color:#5d8bff;transform:translateY(-2px)}
+  .chapter .n{font-size:11px;letter-spacing:2px;color:#6f9dff}
+  .chapter .name{font-size:18px;font-weight:600}
+  .chapter.locked{cursor:not-allowed;opacity:.4}
+  .chapter.locked:hover{transform:none;background:rgba(15,24,40,.7);border-color:rgba(120,170,255,.3)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="vignette"></div>
+<canvas id="minimap" width="300" height="130"></canvas>
+<div id="floorLabel">STOCK 0</div>
+<div id="objective"><div class="t">ZIEL</div><div id="otext">—</div></div>
+<div id="prompt"></div>
+<div id="dialogue"><div id="speaker"></div><div id="dtext"></div></div>
+<div id="controls">
+  <b>W A S D</b> laufen &nbsp;·&nbsp; <b>Shift</b> rennen &nbsp;·&nbsp;
+  <b>Maus</b> / <b>← ↑ ↓ →</b> umsehen &nbsp;·&nbsp; <b>E</b> interagieren
+</div>
+<div id="fade"></div>
+
+<div id="menu">
+  <h1>ESCAPE SCHOOL</h1>
+  <div class="sub">EIN 3D-ABENTEUER</div>
+  <div class="chapter" id="ch1">
+    <div><div class="n">KAPITEL 1</div><div class="name">Der Regentag</div></div>
+    <div style="font-size:22px;color:#5d8bff">▶</div>
+  </div>
+  <div class="chapter locked" id="ch2">
+    <div><div class="n">KAPITEL 2</div><div class="name">Coming Soon</div></div>
+    <div style="font-size:16px;color:#7f96b8">🔒</div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+/* ============================================================
+   1. GRUNDGERÜST
+   ============================================================ */
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.getElementById('app').appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const SKY = new THREE.Color(0x1a2130);
+scene.background = SKY.clone();
+scene.fog = new THREE.Fog(0x1a2130, 22, 95);
+
+const camera = new THREE.PerspectiveCamera(68, innerWidth/innerHeight, 0.08, 400);
+
+const world = new THREE.Group();
+scene.add(world);
+
+const hemi = new THREE.HemisphereLight(0x9fb4d0, 0x252a33, 0.75);
+scene.add(hemi);
+const amb = new THREE.AmbientLight(0xffffff, 0.30);
+scene.add(amb);
+const dir = new THREE.DirectionalLight(0xadc6e6, 0.55);
+dir.position.set(-40, 50, 70);
+scene.add(dir);
+
+/* Audio (Regen) */
+let audioCtx = null;
+function startAudio(){
+  if(audioCtx) return;
+  try{
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const len = audioCtx.sampleRate * 2;
+    const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+    const d = buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i] = Math.random()*2-1;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf; src.loop = true;
+    const f = audioCtx.createBiquadFilter();
+    f.type='bandpass'; f.frequency.value=1400; f.Q.value=0.5;
+    const g = audioCtx.createGain(); g.gain.value = 0.06;
+    src.connect(f).connect(g).connect(audioCtx.destination);
+    src.start();
+  }catch(e){}
+}
+
+/* ============================================================
+   2. GEBÄUDE-DATEN
+   ============================================================ */
+const FLOORS = 3;
+const FH = 4;
+const X0 = -32, X1 = 32;
+const Z0 = -12, Z1 = 12;
+const CORR = 3.5;
+const T = 0.4;
+const RX0 = -26, RX1 = 26, NROOMS = 6;
+const roomW = (RX1-RX0)/NROOMS;
+const roomEdges = [];
+for(let i=0;i<=NROOMS;i++) roomEdges.push(RX0 + i*roomW);
+const roomCenterX = i => RX0 + (i+0.5)*roomW;
+
+const NAMES_N = ["Klassenzimmer 1","Physik","Chemie","Biologie","Musik","Kunstraum"];
+const NAMES_S = ["Mathematik","Deutsch","Englisch","Geschichte","Erdkunde","Bibliothek"];
+
+const colliders = [[],[],[]];
+const rooms = [];
+const stairZones = [];
+const interactables = [];
+
+/* ============================================================
+   3. MATERIALIEN
+   ============================================================ */
+const M = {
+  wall:      new THREE.MeshStandardMaterial({ color:0xdde3ea, roughness:0.96 }),
+  wallOut:   new THREE.MeshStandardMaterial({ color:0xa8b1bd, roughness:0.96 }),
+  slab:      new THREE.MeshStandardMaterial({ color:0x5c636d, roughness:0.95 }),
+  corrFloor: new THREE.MeshStandardMaterial({ color:0x6e767f, roughness:0.9 }),
+  ceil:      new THREE.MeshStandardMaterial({ color:0xeef2f7, roughness:1 }),
+  glass:     new THREE.MeshStandardMaterial({ color:0xa8cdea, transparent:true, opacity:0.16,
+                roughness:0.05, metalness:0.2, side:THREE.DoubleSide }),
+  door:      new THREE.MeshStandardMaterial({ color:0x8a6a48, roughness:0.75 }),
+  doorLock:  new THREE.MeshStandardMaterial({ color:0x5c4630, roughness:0.8 }),
+  light:     new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xfff2d0, emissiveIntensity:1.6 }),
+  desk:      new THREE.MeshStandardMaterial({ color:0xc9a877, roughness:0.8 }),
+  metal:     new THREE.MeshStandardMaterial({ color:0x707a86, roughness:0.5, metalness:0.6 }),
+  stair:     new THREE.MeshStandardMaterial({ color:0x9aa3ad, roughness:0.9 }),
+};
+
+/* ============================================================
+   4. BAUMETHODEN
+   ============================================================ */
+function addWall(floor, x1, z1, x2, z2, y0, y1, mat, collide=true){
+  const w = Math.max(Math.abs(x2-x1), 0.01);
+  const d = Math.max(Math.abs(z2-z1), 0.01);
+  const h = y1 - y0;
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  mesh.position.set((x1+x2)/2, y0 + h/2, (z1+z2)/2);
+  world.add(mesh);
+  if(collide) colliders[floor].push({
+    x1:Math.min(x1,x2), z1:Math.min(z1,z2),
+    x2:Math.max(x1,x2), z2:Math.max(z1,z2)
+  });
+  return mesh;
+}
+
+function addLightPanel(x, y, z, w, d){
+  const p = new THREE.Mesh(new THREE.BoxGeometry(w, 0.08, d), M.light);
+  p.position.set(x, y, z);
+  world.add(p);
+}
+
+function buildOuterWallX(floor, zc, winCenters){
+  const y0 = floor*FH, y1 = y0 + FH;
+  const zA = zc - T/2, zB = zc + T/2;
+  winCenters.sort((a,b)=>a-b);
+  const xs = [X0-0.2];
+  for(const c of winCenters) xs.push(c-1.6, c+1.6);
+  xs.push(X1+0.2);
+  for(let i=0;i<xs.length;i+=2){
+    if(xs[i+1]-xs[i] > 0.01)
+      addWall(floor, xs[i], zA, xs[i+1], zB, y0, y1, M.wallOut);
+  }
+  for(const c of winCenters){
+    addWall(floor, c-1.6, zA, c+1.6, zB, y0, y0+1.1, M.wallOut);
+    addWall(floor, c-1.6, zA, c+1.6, zB, y0+2.9, y1, M.wallOut, false);
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), M.glass);
+    g.position.set(c, y0+2.0, zc);
+    world.add(g);
+    const fr = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.06, 0.06), M.metal);
+    fr.position.set(c, y0+1.12, zc); world.add(fr);
+    const fr2 = fr.clone(); fr2.position.y = y0+2.88; world.add(fr2);
+    const fr3 = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.8, 0.06), M.metal);
+    fr3.position.set(c, y0+2.0, zc); world.add(fr3);
+  }
+}
+
+function buildOuterWallZ(floor, xc, zc1, zc2){
+  const y0 = floor*FH, y1 = y0 + FH;
+  const xA = xc - T/2, xB = xc + T/2;
+  addWall(floor, xA, zc1, xB, zc2, y0, y1, M.wallOut);
+  const zc = (zc1+zc2)/2;
+  const g = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.8), M.glass);
+  g.position.set(xc, y0+2.1, zc);
+  g.rotation.y = Math.PI/2;
+  world.add(g);
+}
+
+function buildCorridorWall(floor, zc, doorXs){
+  const y0 = floor*FH, y1 = y0 + FH;
+  const zA = zc - T/2, zB = zc + T/2;
+  doorXs.sort((a,b)=>a-b);
+  const xs = [X0];
+  for(const d of doorXs) xs.push(d-1.1, d+1.1);
+  xs.push(X1);
+  for(let i=0;i<xs.length;i+=2){
+    if(xs[i+1]-xs[i] > 0.01)
+      addWall(floor, xs[i], zA, xs[i+1], zB, y0, y1, M.wall);
+  }
+  for(const d of doorXs){
+    addWall(floor, d-1.1, zA, d+1.1, zB, y0+2.4, y1, M.wall, false);
+    const f1 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.4, T+0.06), M.door);
+    f1.position.set(d-1.1, y0+1.2, zc); world.add(f1);
+    const f2 = f1.clone(); f2.position.x = d+1.1; world.add(f2);
+  }
+}
+
+/* ============================================================
+   5. SCHULE BAUEN
+   ============================================================ */
+function buildSchool(){
+  for(let f=0; f<FLOORS; f++){
+    const y0 = f*FH;
+
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(X1-X0+1, 0.3, Z1-Z0+1), M.slab);
+    slab.position.set(0, y0-0.15, 0);
+    world.add(slab);
+
+    const cf = new THREE.Mesh(new THREE.BoxGeometry(X1-X0, 0.04, CORR*2), M.corrFloor);
+    cf.position.set(0, y0+0.02, 0);
+    world.add(cf);
+
+    if(f === FLOORS-1){
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(X1-X0+1, 0.3, Z1-Z0+1), M.ceil);
+      roof.position.set(0, y0+FH+0.15, 0);
+      world.add(roof);
+    }
+
+    const northWin = [], southWin = [];
+    for(let i=0;i<NROOMS;i++){ northWin.push(roomCenterX(i)); southWin.push(roomCenterX(i)); }
+    northWin.push(29); northWin.push(-29);
+    southWin.push(29); southWin.push(-29);
+    buildOuterWallX(f, Z1, northWin);
+    buildOuterWallX(f, Z0, southWin);
+    buildOuterWallZ(f, X1, Z0, Z1);
+    buildOuterWallZ(f, X0, Z0, Z1);
+
+    const doors = [];
+    for(let i=0;i<NROOMS;i++) doors.push(roomCenterX(i));
+    buildCorridorWall(f,  CORR, doors);
+    buildCorridorWall(f, -CORR, doors);
+
+    for(let i=0;i<=NROOMS;i++){
+      const x = roomEdges[i];
+      addWall(f, x-T/2, CORR, x+T/2, Z1-T/2, y0, y0+FH, M.wall);
+      addWall(f, x-T/2, Z0+T/2, x+T/2, -CORR, y0, y0+FH, M.wall);
+    }
+
+    for(let i=0;i<NROOMS;i++){
+      rooms.push({ floor:f, x1:roomEdges[i], x2:roomEdges[i+1], z1:CORR, z2:Z1-T/2, name:NAMES_N[i] });
+      rooms.push({ floor:f, x1:roomEdges[i], x2:roomEdges[i+1], z1:Z0+T/2, z2:-CORR, name:NAMES_S[i] });
+    }
+
+    for(let x=-28; x<=28; x+=8) addLightPanel(x, y0+FH-0.12, 0, 2.4, 0.5);
+    for(let i=0;i<NROOMS;i++){
+      addLightPanel(roomCenterX(i), y0+FH-0.12, 7.5, 2.2, 0.5);
+      addLightPanel(roomCenterX(i), y0+FH-0.12, -7.5, 2.2, 0.5);
+    }
+  }
+
+  for(const side of [-1, 1]){
+    for(let f=0; f<FLOORS; f++){
+      stairZones.push({
+        floor:f, side,
+        x1: side<0 ? X0 : 26, x2: side<0 ? -26 : X1,
+        z1: -CORR, z2: CORR
+      });
+      const mark = new THREE.Mesh(
+        new THREE.PlaneGeometry(5.5, CORR*2-0.4),
+        new THREE.MeshStandardMaterial({ color:0x2b6bff, transparent:true, opacity:0.13 })
+      );
+      mark.rotation.x = -Math.PI/2;
+      mark.position.set(side<0 ? -29 : 29, f*FH+0.05, 0);
+      world.add(mark);
+
+      if(f < FLOORS-1){
+        const steps = 12;
+        for(let s=0;s<steps;s++){
+          const t = s/steps;
+          const px = side<0 ? (X0 + 1 + t*5) : (X1 - 1 - t*5);
+          const st = new THREE.Mesh(new THREE.BoxGeometry(5/steps+0.05, 0.22, CORR*2-0.4), M.stair);
+          st.position.set(px, f*FH + t*FH + 0.11, 0);
+          world.add(st);
+        }
+      }
+    }
+  }
+
+  const lockedDoors = [
+    { floor:2, x:roomCenterX(3), z: CORR, name:'Lehrerzimmer' },
+    { floor:1, x:roomCenterX(5), z:-CORR, name:'Bibliothek'  },
+  ];
+  for(const d of lockedDoors){
+    const y0 = d.floor*FH;
+    const door = new THREE.Mesh(new THREE.BoxGeometry(2.1, 2.4, 0.12), M.doorLock);
+    door.position.set(d.x, y0+1.2, d.z);
+    world.add(door);
+    colliders[d.floor].push({ x1:d.x-1.05, z1:d.z-0.35, x2:d.x+1.05, z2:d.z+0.35 });
+    interactables.push({
+      floor:d.floor, x:d.x, z:d.z, r:2.4,
+      label:`Tür öffnen – ${d.name}`,
+      action:()=> say('', 'Abgeschlossen. Diese Tür ist verschlossen.', 2.4)
+    });
+  }
+}
+
+/* ============================================================
+   6. CHARAKTER
+   ============================================================ */
+function makeCharacter(o={}){
+  const g = new THREE.Group();
+  const skin  = new THREE.MeshStandardMaterial({ color:o.skin  ?? 0xe8b58a, roughness:0.85 });
+  const shirt = new THREE.MeshStandardMaterial({ color:o.shirt ?? 0x2f6fb8, roughness:0.9 });
+  const pants = new THREE.MeshStandardMaterial({ color:o.pants ?? 0x2b3342, roughness:0.95 });
+  const hair  = new THREE.MeshStandardMaterial({ color:o.hair  ?? 0x3a2a1e, roughness:0.9 });
+  const shoe  = new THREE.MeshStandardMaterial({ color:o.shoe  ?? 0xeaeaea, roughness:0.75 });
+  const dark  = new THREE.MeshStandardMaterial({ color:0x14181f, roughness:0.5 });
+
+  const hips = new THREE.Mesh(new THREE.BoxGeometry(0.42,0.22,0.26), pants);
+  hips.position.y = 0.92; g.add(hips);
+
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.50,0.60,0.30), shirt);
+  torso.position.y = 1.32; g.add(torso);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.19,20,16), skin);
+  head.position.y = 1.80; head.scale.set(1,1.08,1); g.add(head);
+
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.202,20,16), hair);
+  cap.position.y = 1.84; cap.scale.set(1,0.78,1.02); g.add(cap);
+  const back = new THREE.Mesh(new THREE.SphereGeometry(0.20,16,12), hair);
+  back.position.set(0,1.80,-0.03); back.scale.set(0.98,0.95,0.98); g.add(back);
+
+  for(const sx of [-1,1]){
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.028,10,8), dark);
+    eye.position.set(sx*0.072, 1.81, 0.172); g.add(eye);
+  }
+
+  function limb(px, py, w, h, mat, matEnd, endSize){
+    const pivot = new THREE.Group();
+    pivot.position.set(px, py, 0);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,w), mat);
+    m.position.y = -h/2; pivot.add(m);
+    const e = new THREE.Mesh(new THREE.BoxGeometry(endSize,endSize,endSize), matEnd);
+    e.position.y = -h - endSize*0.3; pivot.add(e);
+    g.add(pivot);
+    return pivot;
+  }
+  const armL = limb(-0.33, 1.56, 0.14, 0.52, shirt, skin, 0.13);
+  const armR = limb( 0.33, 1.56, 0.14, 0.52, shirt, skin, 0.13);
+  const legL = limb(-0.14, 0.90, 0.17, 0.80, pants, shoe, 0.15);
+  const legR = limb( 0.14, 0.90, 0.17, 0.80, pants, shoe, 0.15);
+  legL.children[1].scale.set(1,0.7,1.9);
+  legR.children[1].scale.set(1,0.7,1.9);
+
+  const bag = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.42,0.18), 
+    new THREE.MeshStandardMaterial({ color:o.bag ?? 0x1e2530, roughness:0.9 }));
+  bag.position.set(0,1.34,-0.22); g.add(bag);
+
+  g.userData = { armL, armR, legL, legR, torso, baseY:0 };
+  return g;
+}
+
+/* Sanftes Sitzen ↔ Stehen ↔ Laufen */
+function applyPose(ch, sitBlend, animT, speed){
+  const u = ch.userData;
+  const walkAmp = Math.min(speed/4.2, 1) * (1 - sitBlend);
+  const s = Math.sin(animT*11) * walkAmp;
+
+  u.legL.rotation.x = -1.55*sitBlend + s*0.85;
+  u.legR.rotation.x = -1.55*sitBlend - s*0.85;
+  u.armL.rotation.x = -1.15*sitBlend - s*0.70;
+  u.armR.rotation.x = -1.15*sitBlend + s*0.70;
+  u.torso.position.y = 1.32 + Math.abs(Math.sin(animT*11))*0.035*walkAmp;
+  u.torso.rotation.y = -s*0.08;
+
+  ch.position.y = u.baseY - 0.46*sitBlend;
+}
+
+/* ============================================================
+   7. SCHULTISCH
+   ============================================================ */
+function addDesk(x, z, floor){
+  const y0 = floor*FH;
+  const top = new THREE.Mesh(new THREE.BoxGeometry(1.25,0.07,0.62), M.desk);
+  top.position.set(x, y0+0.76, z); world.add(top);
+  for(const [dx,dz] of [[-0.52,-0.24],[0.52,-0.24],[-0.52,0.24],[0.52,0.24]]){
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.76,0.06), M.metal);
+    leg.position.set(x+dx, y0+0.38, z+dz); world.add(leg);
+  }
+  const chair = new THREE.Mesh(new THREE.BoxGeometry(0.48,0.06,0.48), M.metal);
+  chair.position.set(x, y0+0.46, z+0.72); world.add(chair);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(0.48,0.5,0.06), M.metal);
+  back.position.set(x, y0+0.72, z+0.94); world.add(back);
+}
+
+/* ============================================================
+   8. SPIELER  (sitzt am Anfang im Klassenzimmer)
+   ============================================================ */
+const PLAYER_DESK_X = roomCenterX(0);
+const PLAYER_DESK_Z = 6.4;               // Tischreihe 1
+const PLAYER_CHAIR_Z = PLAYER_DESK_Z + 0.72;
+
+const player = {
+  x: PLAYER_DESK_X,
+  y: 0,
+  z: PLAYER_CHAIR_Z,
+  floor: 0,
+  rot: Math.PI,           // blickt zur Tafel (-z)
+  speed: 0,
+  radius: 0.36,
+  char: null,
+  sitBlend: 1,
+  sitTarget: 1,
+  state: 'sitting'        // sitting | standing-up | free
+};
+player.char = makeCharacter({ shirt:0x2f6fb8, pants:0x2b3342, hair:0x3a2a1e, bag:0x1e2530 });
+player.char.userData.baseY = 0;
+world.add(player.char);
+applyPose(player.char, 1, 0, 0);
+
+/* Kamera-Winkel: hinter dem Spieler, blickt zur Tafel */
+let camYaw = 0, camPitch = 0.22;
+const CAM_DIST = 4.2;
+
+/* ============================================================
+   9. EINGABE
+   ============================================================ */
+const keys = {};
+addEventListener('keydown', e=>{
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true;
+  if(e.code === 'KeyE') doInteract();
+});
+addEventListener('keyup', e=> keys[e.code] = false);
+
+renderer.domElement.addEventListener('click', ()=>{
+  if(!menuOpen && !document.pointerLockElement) renderer.domElement.requestPointerLock();
+});
+addEventListener('mousemove', e=>{
+  if(document.pointerLockElement){
+    camYaw   -= e.movementX * 0.0022;
+    camPitch += e.movementY * 0.0018;
+    camPitch = Math.max(-0.75, Math.min(1.05, camPitch));
+  }
+});
+
+/* ============================================================
+   10. KOLLISION
+   ============================================================ */
+function pushOut(px, pz, r, c){
+  const cx = Math.max(c.x1, Math.min(px, c.x2));
+  const cz = Math.max(c.z1, Math.min(pz, c.z2));
+  const dx = px-cx, dz = pz-cz;
+  const d2 = dx*dx + dz*dz;
+  if(d2 > r*r) return null;
+  if(d2 > 1e-8){
+    const d = Math.sqrt(d2);
+    return [px + dx/d*(r-d), pz + dz/d*(r-d)];
+  }
+  const left = px-c.x1, right = c.x2-px, top = pz-c.z1, bot = c.z2-pz;
+  const m = Math.min(left,right,top,bot);
+  if(m===left)  return [c.x1-r, pz];
+  if(m===right) return [c.x2+r, pz];
+  if(m===top)   return [px, c.z1-r];
+  return [px, c.z2+r];
+}
+function collide(px, pz, floor){
+  const r = player.radius;
+  for(const c of colliders[floor]){
+    const res = pushOut(px, pz, r, c);
+    if(res){ px = res[0]; pz = res[1]; }
+  }
+  return [px, pz];
+}
+
+/* ============================================================
+   11. UI
+   ============================================================ */
+const elObj = document.getElementById('otext');
+const elFloor = document.getElementById('floorLabel');
+const elPrompt = document.getElementById('prompt');
+const elDia = document.getElementById('dialogue');
+const elSpeaker = document.getElementById('speaker');
+const elDtext = document.getElementById('dtext');
+const elFade = document.getElementById('fade');
+const elControls = document.getElementById('controls');
+
+let menuOpen = true;
+function setObjective(txt){ elObj.textContent = txt; }
+
+let dq = [], dTimer = 0, dActive = false;
+function say(speaker, text, dur=3.5){
+  dq.push({ speaker, text, dur });
+  if(!dActive) nextDialogue();
+}
+function nextDialogue(){
+  if(dq.length === 0){ dActive = false; elDia.classList.remove('show'); return; }
+  dActive = true;
+  const d = dq.shift();
+  elSpeaker.textContent = d.speaker || '';
+  elDtext.textContent = d.text;
+  elDia.classList.add('show');
+  dTimer = d.dur;
+}
+function updateDialogue(dt){
+  if(!dActive) return;
+  dTimer -= dt;
+  if(dTimer <= 0) nextDialogue();
+}
+function fadeOut(cb){
+  elFade.style.opacity = '1';
+  setTimeout(()=>{ cb && cb(); setTimeout(()=> elFade.style.opacity='0', 120); }, 380);
+}
+
+/* ============================================================
+   12. INTERAKTION
+   ============================================================ */
+let currentInteract = null;
+function doInteract(){
+  if(menuOpen) return;
+  if(currentInteract && currentInteract.action) currentInteract.action();
+}
+function updateInteract(){
+  if(player.state !== 'free'){ elPrompt.classList.remove('show'); currentInteract = null; return; }
+
+  let best = null, bestD = 1e9;
+  for(const it of interactables){
+    if(it.floor !== player.floor) continue;
+    const d = Math.hypot(it.x-player.x, it.z-player.z);
+    if(d < it.r && d < bestD){ best = it; bestD = d; }
+  }
+  for(const sz of stairZones){
+    if(sz.floor !== player.floor || !stairReady) continue;
+    if(player.x > Math.min(sz.x1,sz.x2) && player.x < Math.max(sz.x1,sz.x2)
+       && player.z > sz.z1 && player.z < sz.z2){
+      const up = player.floor < FLOORS-1;
+      const down = player.floor > 0;
+      if(up || down){
+        const label = up ? 'Treppe hinauf' : 'Treppe hinunter';
+        best = { floor:sz.floor, x:player.x, z:player.z, r:99, label,
+                 action:()=> useStairs(up ? 1 : -1) };
+        bestD = 0;
+      }
+    }
+  }
+  currentInteract = best;
+  if(best){
+    elPrompt.innerHTML = `<b>[E]</b> ${best.label}`;
+    elPrompt.classList.add('show');
+  } else {
+    elPrompt.classList.remove('show');
+  }
+}
+
+let stairReady = true;
+function useStairs(dir){
+  const nf = player.floor + dir;
+  if(nf < 0 || nf >= FLOORS) return;
+  stairReady = false;
+  fadeOut(()=>{
+    player.floor = nf;
+    player.y = nf*FH;
+    elFloor.textContent = 'STOCK ' + nf;
+    if(dir > 0) say('', `Du gehst die Treppe hinauf in den ${nf}. Stock.`, 2.2);
+    else        say('', `Du gehst die Treppe hinunter in den ${nf}. Stock.`, 2.2);
+  });
+}
+
+/* ============================================================
+   13. REGEN
+   ============================================================ */
+const RAIN = 2600;
+const rainGeo = new THREE.BufferGeometry();
+const rp = new Float32Array(RAIN*6);
+const rSpeed = new Float32Array(RAIN);
+for(let i=0;i<RAIN;i++){
+  let x, z;
+  do{
+    x = (Math.random()-0.5) * 130;
+    z = (Math.random()-0.5) * 90;
+  } while(Math.abs(x) < 37 && Math.abs(z) < 17);
+  const y = Math.random()*30;
+  rp[i*6+0]=x; rp[i*6+1]=y;      rp[i*6+2]=z;
+  rp[i*6+3]=x; rp[i*6+4]=y-0.7;  rp[i*6+5]=z;
+  rSpeed[i] = 22 + Math.random()*16;
+}
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rp, 3));
+const rain = new THREE.LineSegments(rainGeo,
+  new THREE.LineBasicMaterial({ color:0xa9c8e8, transparent:true, opacity:0.34 }));
+scene.add(rain);
+
+function updateRain(dt){
+  const a = rainGeo.attributes.position.array;
+  for(let i=0;i<RAIN;i++){
+    const dy = rSpeed[i]*dt;
+    a[i*6+1] -= dy; a[i*6+4] -= dy;
+    if(a[i*6+4] < -1){ a[i*6+1] += 31; a[i*6+4] += 31; }
+  }
+  rainGeo.attributes.position.needsUpdate = true;
+}
+
+let lightningT = 6;
+function updateLightning(dt){
+  lightningT -= dt;
+  if(lightningT <= 0){
+    lightningT = 14 + Math.random()*22;
+    let n = 0;
+    const iv = setInterval(()=>{
+      hemi.intensity = 3.0; amb.intensity = 1.4;
+      scene.background.setHex(0x8fa8c8);
+      setTimeout(()=>{
+        hemi.intensity = 0.75; amb.intensity = 0.30;
+        scene.background.copy(SKY);
+      }, 55);
+      if(++n > 1) clearInterval(iv);
+    }, 120);
+  }
+}
+
+/* ============================================================
+   14. MINIMAP
+   ============================================================ */
+const mm = document.getElementById('minimap');
+const ctx = mm.getContext('2d');
+const MMS = 4.0, MMPX = 22, MMPZ = 17;
+const wx = x => (x - X0)*MMS + MMPX;
+const wz = z => (Z1 - z)*MMS + MMPZ;
+
+function drawMinimap(){
+  const f = player.floor;
+  ctx.clearRect(0,0,mm.width,mm.height);
+
+  ctx.fillStyle = 'rgba(8,12,20,0.9)';
+  ctx.beginPath(); ctx.roundRect(0,0,mm.width,mm.height,12); ctx.fill();
+
+  ctx.fillStyle = 'rgba(40,55,80,0.7)';
+  ctx.fillRect(wx(X0), wz(Z1), (X1-X0)*MMS, (Z1-Z0)*MMS);
+
+  ctx.fillStyle = 'rgba(140,180,255,0.55)';
+  for(const c of colliders[f]){
+    ctx.fillRect(wx(c.x1), wz(c.z2), (c.x2-c.x1)*MMS, (c.z2-c.z1)*MMS);
+  }
+
+  ctx.fillStyle = 'rgba(90,180,255,0.28)';
+  ctx.fillRect(wx(X0+1), wz(CORR), 5*MMS, CORR*2*MMS);
+  ctx.fillRect(wx(X1-6), wz(CORR), 5*MMS, CORR*2*MMS);
+
+  const px = wx(player.x), py = wz(player.z);
+  const fx = Math.sin(player.rot), fz = Math.cos(player.rot);
+  const mx = fx, my = -fz;
+  ctx.save();
+  ctx.translate(px, py);
+  ctx.beginPath();
+  ctx.moveTo(mx*7, my*7);
+  ctx.lineTo(-my*4.5 - mx*3,  mx*4.5 - my*3);
+  ctx.lineTo( my*4.5 - mx*3, -mx*4.5 - my*3);
+  ctx.closePath();
+  ctx.fillStyle = '#6fa8ff';
+  ctx.shadowColor = '#4d8dff'; ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.strokeStyle = 'rgba(120,170,255,0.35)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(0.75,0.75,mm.width-1.5,mm.height-1.5,12); ctx.stroke();
+}
+
+/* ============================================================
+   15. INTRO-SZENE
+   ============================================================ */
+function buildIntroScene(){
+  const f = 0;
+  const cx0 = roomCenterX(0);
+
+  // Tafel
+  const board = new THREE.Mesh(new THREE.BoxGeometry(3.4,1.4,0.1),
+    new THREE.MeshStandardMaterial({ color:0x1e3a2a, roughness:0.95 }));
+  board.position.set(cx0, f*FH+2.0, CORR+0.6);
+  world.add(board);
+
+  // Lehrerpult
+  const pult = new THREE.Mesh(new THREE.BoxGeometry(1.6,0.9,0.7), M.desk);
+  pult.position.set(cx0, f*FH+0.45, CORR+2.0);
+  world.add(pult);
+
+  // Lehrer (blickt zu Schülern = +z)
+  const teacher = makeCharacter({ shirt:0x3a3f4a, pants:0x232833, hair:0x2a2320,
+                                  skin:0xdcae86, shoe:0x2b2b2b });
+  teacher.position.set(cx0 + 0.1, f*FH, CORR+2.6);
+  teacher.rotation.y = 0;
+  teacher.userData.baseY = f*FH;
+  world.add(teacher);
+
+  // Schülerinnen & Schüler – der Platz vorne Mitte bleibt für den Spieler frei
+  const cols = [0x2f6fb8,0xb84f4f,0x4f9b6a,0x8a5fb8,0xb8873f,0x3d7f8f];
+  const rowsZ = [PLAYER_DESK_Z, PLAYER_DESK_Z + 1.8, PLAYER_DESK_Z + 3.6];
+  let k = 0;
+  for(let r=0; r<rowsZ.length; r++){
+    for(let c=-1; c<=1; c++){
+      const x = cx0 + c*2.3;
+      const zDesk = rowsZ[r];
+      addDesk(x, zDesk, f);
+      const isPlayerSeat = (r === 0 && c === 0);
+      if(isPlayerSeat) continue;
+
+      const s = makeCharacter({
+        shirt: cols[(k)%cols.length],
+        pants: 0x2b3342,
+        hair:  [0x3a2a1e,0x1e1a16,0x6b4a2a][k%3]
+      });
+      s.position.set(x, f*FH, zDesk + 0.72);
+      s.rotation.y = Math.PI;
+      s.userData.baseY = f*FH;
+      world.add(s);
+      applyPose(s, 1, 0, 0);
+      k++;
+    }
+  }
+}
+
+/* ============================================================
+   16. STORY-STEUERUNG
+   ============================================================ */
+let storyStarted = false, introTimer = 0, introStage = 0;
+
+function updateStory(dt){
+  if(!storyStarted) return;
+  introTimer += dt;
+
+  if(introStage === 0 && introTimer > 0.7){
+    introStage = 1;
+    say('FRAU BERGER', 'So … wer kann mir nochmal erklären, warum der Satz des Pythagoras funktioniert?', 4.2);
+    say('FRAU BERGER', 'Jonas? Nein? Dann machen wir es nochmal gemeinsam …', 3.8);
+  }
+
+  if(introStage === 1 && introTimer > 10){
+    introStage = 2;
+    say('', '📢 Durchsage: Wegen des starken Regens ist ab jetzt Regenpause. Alle Schülerinnen und Schüler bleiben im Gebäude.', 6);
+    setObjective('Steh auf und verlasse das Klassenzimmer.');
+  }
+
+  if(introStage === 2 && introTimer > 13.5){
+    introStage = 3;
+    // Automatisches Aufstehen
+    player.state = 'standing-up';
+    player.sitTarget = 0;
+    say('', 'Du stehst langsam auf und gehst zur Tür.', 2.6);
+  }
+}
+
+/* ============================================================
+   17. UPDATE / LOOP
+   ============================================================ */
+const clock = new THREE.Clock();
+let animT = 0;
+
+function updatePlayer(dt){
+  // Sitzen ↔ Stehen sanft animieren
+  player.sitBlend += (player.sitTarget - player.sitBlend) * Math.min(1, dt*3.5);
+
+  if(player.state === 'standing-up' && player.sitBlend < 0.05){
+    player.sitBlend = 0;
+    player.state = 'free';
+    setObjective('Verlasse das Klassenzimmer und geh auf den Flur.');
+    say('', 'Du kannst dich jetzt frei bewegen. Mit [WASD] laufen, mit der Maus umsehen.', 4);
+  }
+
+  // Umsehen per Pfeiltasten
+  const lookSpeed = 1.8;
+  if(keys['ArrowLeft'])  camYaw   += lookSpeed * dt;
+  if(keys['ArrowRight']) camYaw   -= lookSpeed * dt;
+  if(keys['ArrowUp'])    camPitch -= lookSpeed * 0.6 * dt;
+  if(keys['ArrowDown'])  camPitch += lookSpeed * 0.6 * dt;
+  camPitch = Math.max(-0.75, Math.min(1.05, camPitch));
+
+  // Bewegung nur wenn frei
+  let ix = 0, iz = 0;
+  if(player.state === 'free'){
+    const fwdX = -Math.sin(camYaw), fwdZ = -Math.cos(camYaw);
+    const rgtX = -fwdZ,             rgtZ =  fwdX;
+    if(keys['KeyW']) { ix += fwdX; iz += fwdZ; }
+    if(keys['KeyS']) { ix -= fwdX; iz -= fwdZ; }
+    if(keys['KeyD']) { ix += rgtX; iz += rgtZ; }
+    if(keys['KeyA']) { ix -= rgtX; iz -= rgtZ; }
+  }
+
+  const len = Math.hypot(ix, iz);
+  const sprint = keys['ShiftLeft'] || keys['ShiftRight'];
+  const maxSpeed = sprint ? 6.4 : 3.6;
+
+  if(len > 0.001){
+    ix /= len; iz /= len;
+    player.speed += (maxSpeed - player.speed) * Math.min(1, dt*10);
+  } else {
+    player.speed += (0 - player.speed) * Math.min(1, dt*12);
+  }
+
+  let nx = player.x + ix * player.speed * dt;
+  let nz = player.z + iz * player.speed * dt;
+  [nx, nz] = collide(nx, nz, player.floor);
+  player.x = nx; player.z = nz;
+
+  if(len > 0.001){
+    const target = Math.atan2(ix, iz);
+    let d = target - player.rot;
+    while(d >  Math.PI) d -= Math.PI*2;
+    while(d < -Math.PI) d += Math.PI*2;
+    player.rot += d * Math.min(1, dt*14);
+  }
+
+  player.y = player.floor * FH;
+  player.char.position.x = player.x;
+  player.char.position.z = player.z;
+  player.char.rotation.y = player.rot;
+  applyPose(player.char, player.sitBlend, animT, player.speed);
+
+  if(!stairReady){
+    let inside = false;
+    for(const sz of stairZones){
+      if(sz.floor !== player.floor) continue;
+      if(player.x > Math.min(sz.x1,sz.x2) && player.x < Math.max(sz.x1,sz.x2)
+         && player.z > sz.z1 && player.z < sz.z2) inside = true;
+    }
+    if(!inside) stairReady = true;
+  }
+}
+
+function updateCamera(dt){
+  const tx = player.x, ty = player.y + 1.55, tz = player.z;
+  const cp = Math.cos(camPitch), sp = Math.sin(camPitch);
+  const dx = Math.sin(camYaw)*cp, dy = sp, dz = Math.cos(camYaw)*cp;
+
+  const target = new THREE.Vector3(tx, ty, tz);
+  let maxT = CAM_DIST;
+  const steps = 12;
+  for(let i=1;i<=steps;i++){
+    const t = CAM_DIST*i/steps;
+    const px = tx + dx*t, pz = tz + dz*t;
+    let hit = false;
+    for(const c of colliders[player.floor]){
+      if(px > c.x1-0.3 && px < c.x2+0.3 && pz > c.z1-0.3 && pz < c.z2+0.3){ hit = true; break; }
+    }
+    if(hit){ maxT = Math.max(1.1, CAM_DIST*(i-1)/steps - 0.15); break; }
+  }
+
+  const cx = tx + dx*maxT;
+  const cy = ty + dy*maxT;
+  const cz = tz + dz*maxT;
+  const clampedY = Math.max(player.y + 0.7, Math.min(player.y + FH - 0.35, cy));
+
+  camera.position.lerp(new THREE.Vector3(cx, clampedY, cz), Math.min(1, dt*16));
+  camera.lookAt(target);
+}
+
+function updateRoomLabel(){
+  let name = 'Flur';
+  if(Math.abs(player.z) < CORR) {
+    if(player.x > 26 || player.x < -26) name = 'Treppenhaus';
+    else name = 'Flur';
+  }
+  for(const r of rooms){
+    if(r.floor !== player.floor) continue;
+    if(player.x > r.x1 && player.x < r.x2 && player.z > r.z1 && player.z < r.z2){
+      name = r.name;
+      if(r.floor === 2 && r.name === 'Biologie' && player.z > CORR) name = 'Lehrerzimmer';
+      break;
+    }
+  }
+  elFloor.textContent = 'STOCK ' + player.floor + ' · ' + name;
+}
+
+function loop(){
+  const dt = Math.min(clock.getDelta(), 0.05);
+  animT += dt;
+
+  if(!menuOpen){
+    updatePlayer(dt);
+    updateCamera(dt);
+    updateInteract();
+    updateRoomLabel();
+    updateDialogue(dt);
+    updateStory(dt);
+  }
+
+  updateRain(dt);
+  updateLightning(dt);
+  drawMinimap();
+
+  renderer.render(scene, camera);
+}
+renderer.setAnimationLoop(loop);
+
+addEventListener('resize', ()=>{
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ============================================================
+   18. START
+   ============================================================ */
+buildSchool();
+buildIntroScene();
+
+// Charakter auf Anfangspose (sitzend) setzen
+applyPose(player.char, 1, 0, 0);
+
+document.getElementById('ch1').addEventListener('click', ()=>{
+  document.getElementById('menu').style.display = 'none';
+  menuOpen = false;
+  startAudio();
+  storyStarted = true;
+  introTimer = 0;
+  setObjective('Hör dem Unterricht zu.');
+  // controls-Hinweis ausblenden nach 8 Sekunden
+  setTimeout(()=>{ elControls.style.opacity = '0'; }, 8000);
+  setTimeout(()=>{ renderer.domElement.requestPointerLock(); }, 100);
+});
+
+document.getElementById('ch2').addEventListener('click', ()=>{
+  alert('Kapitel 2 – Coming Soon 🔒\n\nBleib dran, es wird bald freigeschaltet!');
+});
+
+setObjective('Hör dem Unterricht zu.');
+</script>
+</body>
+</html>
