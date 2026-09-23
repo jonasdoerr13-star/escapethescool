@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Regenpause – Das Geheimnis der Schule</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body {
+    width:100%; height:100%; overflow:hidden; background:#000;
+    font-family: "Segoe UI", Roboto, sans-serif;
+    touch-action:none; overscroll-behavior:none;
+    user-select:none; -webkit-user-select:none;
+  }
+  canvas { display:block; touch-action:none; }
+
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; }
+
+  #crosshair {
+    position:absolute; left:50%; top:50%; width:6px; height:6px; margin:-3px 0 0 -3px;
+    border-radius:50%; background:rgba(255,255,255,0.55);
+    box-shadow:0 0 4px rgba(0,0,0,0.8);
+  }
+
+  #prompt {
+    position:absolute; left:50%; top:56%; transform:translateX(-50%);
+    color:#ffe9a8; font-size:16px; letter-spacing:0.4px; text-shadow:0 2px 6px #000;
+    background:rgba(0,0,0,0.5); padding:7px 16px; border-radius:8px;
+    border:1px solid rgba(255,220,120,0.35);
+    opacity:0; transition:opacity .15s; white-space:nowrap;
+    max-width:92vw; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  #subtitle {
+    position:absolute; left:50%; bottom:120px; transform:translateX(-50%);
+    width:min(900px, 90vw); text-align:center;
+    color:#f2f2f2; font-size:16px; line-height:1.45;
+    text-shadow:0 2px 8px #000, 0 0 20px #000;
+    background:rgba(0,0,0,0.55); padding:10px 16px; border-radius:8px;
+    opacity:0; transition:opacity .4s;
+  }
+
+  #objective {
+    position:absolute; left:14px; top:14px;
+    color:#cfe6ff; font-size:13px; line-height:1.45;
+    text-shadow:0 2px 6px #000;
+    background:rgba(0,0,0,0.45); padding:7px 11px; border-radius:6px;
+    border-left:3px solid #4a8fd4;
+    max-width:min(320px, 62vw);
+  }
+
+  #floorIndicator {
+    position:absolute; right:14px; top:14px;
+    color:#ffe9a8; font-size:12px; letter-spacing:2px;
+    background:rgba(0,0,0,0.5); padding:6px 12px; border-radius:6px;
+    border:1px solid rgba(255,220,120,0.3);
+    text-shadow:0 2px 4px #000;
+  }
+
+  #vignette {
+    position:fixed; inset:0; pointer-events:none; z-index:9;
+    background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,0.75) 100%);
+  }
+
+  #fade {
+    position:fixed; inset:0; background:#000; opacity:0; pointer-events:none;
+    transition:opacity .45s ease; z-index:50;
+  }
+
+  #joyBase {
+    position:fixed; width:118px; height:118px; border-radius:50%;
+    background:rgba(255,255,255,0.07);
+    border:2px solid rgba(255,255,255,0.18);
+    display:none; z-index:20; pointer-events:none;
+    transform:translate(-50%,-50%);
+  }
+  #joyKnob {
+    position:fixed; width:46px; height:46px; border-radius:50%;
+    background:rgba(255,255,255,0.3);
+    border:2px solid rgba(255,255,255,0.45);
+    display:none; z-index:21; pointer-events:none;
+    transform:translate(-50%,-50%);
+    box-shadow:0 0 14px rgba(255,255,255,0.2);
+  }
+
+  #btnE {
+    position:fixed; right:22px; bottom:calc(34px + env(safe-area-inset-bottom));
+    width:88px; height:88px; border-radius:50%;
+    background:rgba(255,233,168,0.12);
+    border:2px solid rgba(255,233,168,0.4);
+    color:#ffe9a8; font-size:24px; font-weight:800; letter-spacing:1px;
+    display:none; z-index:20;
+    font-family:inherit; touch-action:none;
+    transition:background .15s, box-shadow .15s, transform .1s;
+  }
+  #btnE.active {
+    background:rgba(255,233,168,0.4);
+    box-shadow:0 0 26px rgba(255,233,168,0.6);
+    transform:scale(1.06);
+  }
+  #btnE:active { transform:scale(0.94); }
+
+  #lookHint {
+    position:fixed; right:14px; top:50%; transform:translateY(-50%);
+    color:rgba(255,255,255,0.22); font-size:11px; letter-spacing:2px;
+    display:none; z-index:20; pointer-events:none; writing-mode:vertical-rl;
+  }
+
+  #overlay {
+    position:fixed; inset:0; z-index:100;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at center, #10131c 0%, #000 75%);
+    color:#e8e8e8; text-align:center; padding:26px;
+  }
+  #overlay h1 {
+    font-size:clamp(28px, 9vw, 64px); letter-spacing:6px; font-weight:800;
+    color:#dfe7f5; text-shadow:0 0 30px rgba(90,140,255,0.5);
+    margin-bottom:6px;
+  }
+  #overlay h2 {
+    font-size:clamp(11px, 3vw, 18px); letter-spacing:3px; font-weight:400;
+    color:#7f8ea8; margin-bottom:26px; text-transform:uppercase;
+  }
+  #overlay p { font-size:15px; color:#9aa8bd; max-width:600px; line-height:1.65; }
+  #overlay .key { color:#ffe9a8; font-weight:700; }
+  #desktopHint { display:block; }
+  #mobileHint  { display:none; }
+
+  #startBtn {
+    margin-top:32px;
+    padding:16px 54px;
+    font-size:19px;
+    letter-spacing:4px;
+    font-weight:800;
+    font-family:inherit;
+    color:#0a0d14;
+    background:linear-gradient(180deg, #ffe9a8 0%, #d9b23c 100%);
+    border:2px solid #ffe9a8;
+    border-radius:8px;
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .2s ease, filter .2s ease;
+    box-shadow:0 0 26px rgba(255,220,120,0.35), 0 4px 0 #8a6a1c;
+    pointer-events:auto;
+    z-index:5;
+    position:relative;
+    -webkit-appearance:none;
+    appearance:none;
+    user-select:none;
+    -webkit-user-select:none;
+    touch-action:manipulation;
+  }
+  #startBtn:hover { filter:brightness(1.1); }
+  #startBtn:active { transform:translateY(3px); box-shadow:0 0 20px rgba(255,220,120,0.5), 0 1px 0 #8a6a1c; }
+  #startBtn.pulse { animation:startPulse 1.8s ease-in-out infinite; }
+  @keyframes startPulse {
+    0%, 100% { box-shadow:0 0 26px rgba(255,220,120,0.35), 0 4px 0 #8a6a1c; }
+    50%      { box-shadow:0 0 46px rgba(255,220,120,0.75), 0 4px 0 #8a6a1c; }
+  }
+
+  #endOverlay {
+    position:fixed; inset:0; z-index:100; display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    background:#000; color:#cfd8e6; text-align:center; padding:34px;
+  }
+  #endOverlay h1 { font-size:clamp(24px,7vw,52px); letter-spacing:5px; color:#b9c7dc; margin-bottom:20px; }
+  #endOverlay p { font-size:16px; line-height:1.85; color:#8fa0b8; max-width:680px; }
+  #endOverlay .name { color:#ffcf6b; }
+  #endOverlay button {
+    margin-top:32px; padding:14px 34px; font-size:15px; letter-spacing:2px;
+    background:transparent; color:#ffe9a8; border:1px solid #ffe9a8;
+    border-radius:4px; cursor:pointer; transition:.2s; font-family:inherit;
+    -webkit-appearance:none; appearance:none;
+  }
+  #endOverlay button:active { background:#ffe9a8; color:#000; }
+
+  @media (pointer: coarse) {
+    #desktopHint { display:none; }
+    #mobileHint  { display:block; }
+    #crosshair   { display:none; }
+    #prompt      { top:52%; }
+    #subtitle    { bottom:150px; }
+    #btnE, #lookHint { display:block; }
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="prompt"></div>
+  <div id="subtitle"></div>
+  <div id="objective"></div>
+  <div id="floorIndicator">EBENE 0</div>
+</div>
+<div id="vignette"></div>
+
+<div id="joyBase"></div>
+<div id="joyKnob"></div>
+<button id="btnE" type="button">E</button>
+<div id="lookHint">ZIEHEN ZUM UMDREHEN</div>
+
+<div id="fade"></div>
+
+<div id="overlay">
+  <h1>REGENPAUSE</h1>
+  <h2>Das Geheimnis der Schule</h2>
+  <p>
+    Du sitzt im Unterricht. Draußen regnet es in Strömen.<br>
+    Dann kommt die Durchsage – und irgendetwas stimmt nicht mit dieser Schule.
+  </p>
+  <p style="margin-top:20px" id="desktopHint">
+    <span class="key">WASD</span> laufen &nbsp;·&nbsp;
+    <span class="key">Maus</span> umsehen &nbsp;·&nbsp;
+    <span class="key">E</span> interagieren &nbsp;·&nbsp;
+    <span class="key">Shift</span> rennen
+  </p>
+  <p style="margin-top:20px" id="mobileHint">
+    <span class="key">Linke Hälfte</span> = Joystick<br>
+    <span class="key">Rechte Hälfte</span> = Wischen zum Umsehen<br>
+    <span class="key">E-Button</span> = Interagieren<br>
+    <span class="key">Joystick weit</span> = Rennen
+  </p>
+  <button id="startBtn" class="pulse" type="button">START</button>
+</div>
+
+<div id="endOverlay">
+  <h1 id="endTitle">ENDE</h1>
+  <p id="endText"></p>
+  <button id="restartBtn" type="button">NOCHMAL SPIELEN</button>
+</div>
+
+<!-- ============================================================
+     THREE.JS als klassisches Script (funktioniert auch per file://)
+     ============================================================ -->
+<script src="https://unpkg.com/three@0.149.0/build/three.min.js"></script>
+
+<!-- ============================================================
+     START-BUTTON HANDLER — läuft SOFORT, unabhängig vom Spiel
+     ============================================================ -->
+<script>
+(function() {
+  'use strict';
+  var gameStartRequested = false;
+
+  function requestStart(e) {
+    if (e) {
+      if (e.cancelable) { try { e.preventDefault(); } catch(err){} }
+      if (e.stopPropagation) { try { e.stopPropagation(); } catch(err){} }
+    }
+    if (gameStartRequested) return;
+    gameStartRequested = true;
+
+    var overlay = document.getElementById('overlay');
+    if (overlay) overlay.style.display = 'none';
+
+    // Spiel informieren
+    if (typeof window.__startGameNow === 'function') {
+      try { window.__startGameNow(); } catch (err) { console.error(err); }
+    } else {
+      window.__pendingStart = true;
+    }
+  }
+
+  function attach() {
+    var btn = document.getElementById('startBtn');
+    var overlay = document.getElementById('overlay');
+
+    if (btn) {
+      btn.addEventListener('click', requestStart, true);
+      btn.addEventListener('touchend', requestStart, { passive: false, capture: true });
+      btn.addEventListener('pointerup', requestStart, true);
+    }
+    if (overlay) {
+      overlay.addEventListener('click', function(e) {
+        if (e.target === btn) return;
+        requestStart(e);
+      }, true);
+      overlay.addEventListener('touchend', function(e) {
+        if (e.target === btn) return;
+        requestStart(e);
+      }, { passive: false, capture: true });
+    }
+
+    // Restart-Button
+    var rb = document.getElementById('restartBtn');
+    if (rb) {
+      rb.addEventListener('click', function(e) {
+        if (e && e.cancelable) e.preventDefault();
+        location.reload();
+      });
+      rb.addEventListener('touchend', function(e) {
+        if (e && e.cancelable) e.preventDefault();
+        location.reload();
+      }, { passive: false });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attach);
+  } else {
+    attach();
+  }
+})();
+</script>
+
+<!-- ============================================================
+     SPIEL-Code
+     ============================================================ -->
+<script>
+(function() {
+'use strict';
+
+if (typeof THREE === 'undefined') {
+  console.error('Three.js konnte nicht geladen werden.');
+  var ov = document.getElementById('overlay');
+  if (ov) {
+    var msg = document.createElement('p');
+    msg.style.color = '#ff8888';
+    msg.style.marginTop = '20px';
+    msg.textContent = 'Fehler: Three.js konnte nicht geladen werden. Bitte Internetverbindung prüfen.';
+    ov.appendChild(msg);
+  }
+  return;
+}
+
+/* ============================================================
+   GERÄTEERKENNUNG
+   ============================================================ */
+const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) ||
+                /Android|iPhone|iPad|iPod|Mobile|Tablet/i.test(navigator.userAgent);
+const isMobile = isTouch && Math.min(innerWidth, innerHeight) < 900;
+
+/* ============================================================
+   RENDERER / SCENE
+   ============================================================ */
+const renderer = new THREE.WebGLRenderer({ antialias: !isMobile, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, isMobile ? 1.5 : 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x05060a);
+scene.fog = new THREE.FogExp2(0x05060a, 0.012);
+
+const camera = new THREE.PerspectiveCamera(isMobile ? 78 : 72, innerWidth / innerHeight, 0.05, 500);
+camera.rotation.order = 'YXZ';
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ============================================================
+   AUDIO
+   ============================================================ */
+let actx = null;
+function audio() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (actx && actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function beep(freq, dur, vol = 0.08, type = 'sine') {
+  const a = audio(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.value = vol;
+  o.connect(g); g.connect(a.destination);
+  o.start();
+  g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + dur);
+  o.stop(a.currentTime + dur + 0.02);
+}
+function stepSound() { beep(90 + Math.random() * 25, 0.09, 0.045, 'triangle'); }
+function pickupSound() { beep(880, 0.08, 0.07); setTimeout(() => beep(1320, 0.14, 0.06), 70); }
+function doorSound() { beep(140, 0.35, 0.06, 'sawtooth'); }
+
+/* ============================================================
+   MATERIALIEN
+   ============================================================ */
+const wallMat    = new THREE.MeshLambertMaterial({ color: 0xd0c8b6 });
+const extWallMat = new THREE.MeshLambertMaterial({ color: 0x8a6a52 });
+const floorMat   = new THREE.MeshLambertMaterial({ color: 0x6b6152 });
+const ceilMat    = new THREE.MeshLambertMaterial({ color: 0x8d8678 });
+const upperFloorMat = new THREE.MeshLambertMaterial({ color: 0x5a5148 });
+const doorMat    = new THREE.MeshLambertMaterial({ color: 0x6b4a2a });
+const windowMat  = new THREE.MeshBasicMaterial({ color: 0xa8d4f0 });
+const lampMat    = new THREE.MeshBasicMaterial({ color: 0xfff0c0 });
+
+/* ============================================================
+   KOLLISION
+   ============================================================ */
+const colliders = [];
+
+function wall(x, z, w, d, h, y, mat, floor) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y + h/2, z);
+  scene.add(m);
+  colliders.push({
+    minX: x - w/2, maxX: x + w/2,
+    minZ: z - d/2, maxZ: z + d/2,
+    floor: floor
+  });
+  return m;
+}
+function hw(z, x1, x2, floor, y = 0, mat = wallMat, h = 3.5) {
+  if (Math.abs(x2 - x1) < 0.05) return;
+  return wall((x1+x2)/2, z, Math.abs(x2-x1), 0.3, h, y, mat, floor);
+}
+function vw(x, z1, z2, floor, y = 0, mat = wallMat, h = 3.5) {
+  if (Math.abs(z2 - z1) < 0.05) return;
+  return wall(x, (z1+z2)/2, 0.3, Math.abs(z2-z1), h, y, mat, floor);
+}
+
+function blocked(x, z, floor) {
+  const r = 0.35;
+  for (let i = 0; i < colliders.length; i++) {
+    const c = colliders[i];
+    if (c.floor !== -1 && c.floor !== floor) continue;
+    if (x > c.minX - r && x < c.maxX + r && z > c.minZ - r && z < c.maxZ + r) return true;
+  }
+  return false;
+}
+
+function box(x, y, z, w, h, d, color, parent) {
+  if (!parent) parent = scene;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
+  m.position.set(x, y, z);
+  parent.add(m);
+  return m;
+}
+
+/* ============================================================
+   PERSONEN / SCHLÜSSEL / FOTO
+   ============================================================ */
+function makePerson(color, skin) {
+  if (skin === undefined) skin = 0xe8b48a;
+  const g = new THREE.Group();
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.27, 0.75, 8), new THREE.MeshLambertMaterial({ color }));
+  torso.position.y = 0.88;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 10), new THREE.MeshLambertMaterial({ color: skin }));
+  head.position.y = 1.4;
+  const legs = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.55, 0.26), new THREE.MeshLambertMaterial({ color: 0x22252c }));
+  legs.position.y = 0.27;
+  const bag = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.35, 0.15), new THREE.MeshLambertMaterial({ color: 0x2a2a30 }));
+  bag.position.set(0, 0.95, 0.22);
+  g.add(torso, head, legs, bag);
+  return g;
+}
+
+function makeKey() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0xd9b23c });
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.15), mat);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.011, 6, 12), mat);
+  ring.position.z = 0.09;
+  const tooth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.02, 0.03), mat);
+  tooth.position.set(0.03, 0, -0.06);
+  g.add(shaft, ring, tooth);
+  return g;
+}
+
+function photoTexture(kind) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 192;
+  const g = c.getContext('2d');
+  g.fillStyle = '#141210'; g.fillRect(0, 0, 256, 192);
+  const grd = g.createRadialGradient(128, 96, 15, 128, 96, 155);
+  grd.addColorStop(0, 'rgba(120,90,75,0.55)');
+  grd.addColorStop(1, 'rgba(0,0,0,0.95)');
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 192);
+  g.fillStyle = '#060606';
+  if (kind === 0) {
+    g.beginPath(); g.arc(128, 62, 16, 0, 7); g.fill();
+    g.fillRect(112, 78, 32, 62);
+    g.fillRect(98, 140, 60, 9);
+    g.fillRect(102, 149, 8, 34);
+    g.fillRect(146, 149, 8, 34);
+  } else if (kind === 1) {
+    for (let r = 0; r < 3; r++) for (let i = 0; i < 5; i++) {
+      const x = 32 + i * 46, y = 58 + r * 42;
+      g.beginPath(); g.arc(x, y, 8, 0, 7); g.fill();
+      g.fillRect(x - 9, y + 9, 18, 24);
+    }
+  } else {
+    g.fillStyle = '#c8b070';
+    g.beginPath(); g.arc(128, 38, 13, 0, 7); g.fill();
+    g.fillStyle = '#060606';
+    g.fillRect(58, 98, 140, 74);
+    g.beginPath(); g.arc(128, 150, 22, 0, 7); g.fill();
+  }
+  return new THREE.CanvasTexture(c);
+}
+
+/* ============================================================
+   LICHT
+   ============================================================ */
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+scene.add(new THREE.HemisphereLight(0xbfd4ff, 0x30281e, 0.45));
+
+function pointLight(x, y, z, color, intensity, dist) {
+  if (color === undefined) color = 0xfff0d0;
+  if (intensity === undefined) intensity = 1.0;
+  if (dist === undefined) dist = 22;
+  const l = new THREE.PointLight(color, intensity, dist, 2);
+  l.position.set(x, y, z);
+  scene.add(l);
+  return l;
+}
+pointLight(-28, 3.1, 0, 0xfff2d8, 1.0);
+pointLight(-10, 3.1, 0, 0xfff2d8, 1.0);
+pointLight(10, 3.1, 0, 0xfff2d8, 1.0);
+pointLight(30, 3.1, 0, 0xfff2d8, 1.0);
+pointLight(-28, 3.1, 8, 0xffeccc, 0.8);
+pointLight(-15, 3.1, 8, 0xffeccc, 0.8);
+pointLight(-20, 3.1, -8, 0xffeccc, 0.8);
+pointLight(-28, 7.0, 0, 0xfff2d8, 0.9);
+pointLight(-10, 7.0, 0, 0xfff2d8, 0.9);
+pointLight(10, 7.0, 0, 0xfff2d8, 0.9);
+pointLight(30, 7.0, 0, 0xfff2d8, 0.9);
+pointLight(-41, 2.0, 0, 0xffd8a0, 0.9, 14);
+pointLight(-41, 6.0, 0, 0xffd8a0, 0.9, 14);
+pointLight(205, 3.0, 0, 0xff8866, 0.9, 30);
+
+/* ============================================================
+   GEBÄUDE
+   ============================================================ */
+const FLOOR_H = 3.5;
+const UPPER_BASE = 3.9;
+
+// Außenhülle
+wall(3.5, -15, 87, 0.4, 8.0, 0, extWallMat, -1);
+wall(3.5, 15, 87, 0.4, 8.0, 0, extWallMat, -1);
+wall(45, 0, 0.4, 30, 8.0, 0, extWallMat, -1);
+wall(-38, -10.5, 0.4, 9, 8.0, 0, extWallMat, -1);
+wall(-38, 10.5, 0.4, 9, 8.0, 0, extWallMat, -1);
+wall(-45, 0, 0.4, 12, 8.0, 0, extWallMat, -1);
+wall(-41.5, -6, 7, 0.4, 8.0, 0, extWallMat, -1);
+wall(-41.5, 6, 7, 0.4, 8.0, 0, extWallMat, -1);
+
+// Bodenslab
+wall(3.5, 0, 87, 30, 0.4, FLOOR_H, ceilMat, -1);
+// Dach
+wall(3.5, 0, 87, 30, 0.3, FLOOR_H + 0.4 + FLOOR_H, ceilMat, -1);
+
+/* Fenster */
+function addWindowRow(z, xStart, xEnd, y, spacing) {
+  if (spacing === undefined) spacing = 5;
+  for (let x = xStart; x <= xEnd; x += spacing) {
+    box(x, y, z, 1.7, 1.3, 0.12, 0x3a3a3a);
+    const w = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.1, 0.06), windowMat);
+    w.position.set(x, y, z); scene.add(w);
+    box(x, y, z - 0.01, 0.06, 1.1, 0.08, 0x3a3a3a);
+  }
+}
+function addWindowCol(x, zStart, zEnd, y, spacing) {
+  if (spacing === undefined) spacing = 5;
+  for (let z = zStart; z <= zEnd; z += spacing) {
+    box(x, y, z, 0.12, 1.3, 1.7, 0x3a3a3a);
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.1, 1.5), windowMat);
+    w.position.set(x, y, z); scene.add(w);
+    box(x, y, z, 0.08, 1.1, 0.06, 0x3a3a3a);
+  }
+}
+addWindowRow(-14.75, -34, 42, 2.2, 5);
+addWindowRow(-14.75, -34, 42, 5.9, 5);
+addWindowRow(14.75, -34, 42, 2.2, 5);
+addWindowRow(14.75, -34, 42, 5.9, 5);
+addWindowCol(44.75, -12, 12, 2.2, 5);
+addWindowCol(44.75, -12, 12, 5.9, 5);
+
+/* Erdgeschoss Wände */
+hw(-2, -38, -32, 0); hw(-2, -30, -17, 0); hw(-2, -15, -2, 0); hw(-2, 0, 12, 0); hw(-2, 14, 38, 0);
+hw(2, -38, -30, 0); hw(2, -28, -14, 0); hw(2, -12, 2, 0); hw(2, 4, 18, 0); hw(2, 20, 38, 0);
+vw(38, -2, 2, 0); vw(-38, -6, -2, 0); vw(-38, 2, 6, 0);
+vw(-24, -15, -2, 0); vw(-10, -15, -2, 0); vw(6, -15, -2, 0); vw(22, -15, -2, 0);
+vw(-22, 2, 15, 0); vw(-6, 2, 15, 0); vw(10, 2, 15, 0); vw(26, 2, 15, 0);
+
+/* Obergeschoss Wände */
+const OG = 1, yUpper = UPPER_BASE;
+hw(-2, -38, -32, OG, yUpper); hw(-2, -30, -17, OG, yUpper); hw(-2, -15, -2, OG, yUpper);
+hw(-2, 0, 12, OG, yUpper); hw(-2, 14, 38, OG, yUpper);
+hw(2, -38, -30, OG, yUpper); hw(2, -28, -14, OG, yUpper); hw(2, -12, 2, OG, yUpper);
+hw(2, 4, 18, OG, yUpper); hw(2, 20, 38, OG, yUpper);
+vw(38, -2, 2, OG, yUpper); vw(-38, -6, -2, OG, yUpper); vw(-38, 2, 6, OG, yUpper);
+vw(-24, -15, -2, OG, yUpper); vw(-10, -15, -2, OG, yUpper);
+vw(6, -15, -2, OG, yUpper); vw(22, -15, -2, OG, yUpper);
+vw(-22, 2, 15, OG, yUpper); vw(-6, 2, 15, OG, yUpper);
+vw(10, 2, 15, OG, yUpper); vw(26, 2, 15, OG, yUpper);
+
+/* Böden */
+const gFloor = new THREE.Mesh(new THREE.BoxGeometry(87, 0.2, 30), floorMat);
+gFloor.position.set(3.5, -0.1, 0); scene.add(gFloor);
+const uFloor = new THREE.Mesh(new THREE.BoxGeometry(87, 0.05, 30), upperFloorMat);
+uFloor.position.set(3.5, UPPER_BASE - 0.02, 0); scene.add(uFloor);
+const tFloor = new THREE.Mesh(new THREE.BoxGeometry(7, 0.2, 12), floorMat);
+tFloor.position.set(-41.5, -0.1, 0); scene.add(tFloor);
+const tFloor2 = new THREE.Mesh(new THREE.BoxGeometry(7, 0.05, 12), upperFloorMat);
+tFloor2.position.set(-41.5, UPPER_BASE - 0.02, 0); scene.add(tFloor2);
+
+/* Treppen */
+for (let i = 0; i < 12; i++) {
+  const stepY = (i + 1) * (UPPER_BASE / 12);
+  const stepZ = 4 - i * 0.7;
+  box(-41.5, stepY - 0.1, stepZ, 3.2, 0.2, 0.7, 0x8a7f6a);
+}
+
+/* Deckenlampen */
+function ceilingLamp(x, y, z) {
+  box(x, y + 0.02, z, 1.2, 0.1, 0.3, 0x444444);
+  const l = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.05, 0.2), lampMat);
+  l.position.set(x, y - 0.05, z); scene.add(l);
+}
+for (let x = -34; x <= 42; x += 8) {
+  ceilingLamp(x, FLOOR_H, 0);
+  ceilingLamp(x, FLOOR_H + UPPER_BASE + 0.4, 0);
+}
+
+/* ============================================================
+   KLASSENZIMMER (Start)
+   ============================================================ */
+function makeDesk(x, z) {
+  box(x, 0.72, z, 1.25, 0.08, 0.72, 0x9a7b52);
+  box(x - 0.55, 0.36, z, 0.07, 0.72, 0.68, 0x7d6242);
+  box(x + 0.55, 0.36, z, 0.07, 0.72, 0.68, 0x7d6242);
+}
+const deskCols = [-34, -31, -28, -25];
+const deskRows = [7, 10, 13];
+for (let a = 0; a < deskCols.length; a++) {
+  for (let b = 0; b < deskRows.length; b++) makeDesk(deskCols[a], deskRows[b]);
+}
+
+const shirtColors = [0x3b5a8c, 0x8c3b4a, 0x4a7c4a, 0x7a6a3a, 0x5a4a7c, 0x3a6a6a];
+let ci = 0;
+for (let a = 0; a < deskCols.length; a++) {
+  for (let b = 0; b < deskRows.length; b++) {
+    const cx = deskCols[a], rz = deskRows[b];
+    if (Math.abs(cx + 28) < 0.1 && Math.abs(rz - 13) < 0.1) continue;
+    const p = makePerson(shirtColors[ci++ % shirtColors.length]);
+    p.position.set(cx, -0.32, rz + 0.1);
+    scene.add(p);
+  }
+}
+
+box(-28, 2.0, 2.28, 6.2, 1.7, 0.1, 0x1e3a2a);
+box(-28, 2.0, 2.33, 5.8, 1.4, 0.02, 0x24463a);
+box(-28, 0.95, 2.4, 6.4, 0.12, 0.3, 0x7d6242);
+
+const teacherIntro = makePerson(0x2f3542, 0xe0b090);
+teacherIntro.position.set(-28, 0, 4.5);
+teacherIntro.rotation.y = Math.PI;
+scene.add(teacherIntro);
+
+/* ============================================================
+   RAUM B (Spinde)
+   ============================================================ */
+for (let i = 0; i < 8; i++) {
+  const z = 4 + i * 1.4;
+  box(-21.3, 1.0, z, 0.5, 2.0, 0.9, 0x4a5560);
+  box(-21.03, 1.0, z, 0.03, 1.85, 0.83, 0x39424c);
+}
+for (let i = 0; i < 6; i++) {
+  const z = 5 + i * 1.6;
+  box(-6.7, 1.0, z, 0.5, 2.0, 0.95, 0x4a5560);
+  box(-6.43, 1.0, z, 0.03, 1.85, 0.88, 0x39424c);
+}
+
+const lockerGroup = new THREE.Group();
+lockerGroup.position.set(-10, 0, 10);
+scene.add(lockerGroup);
+box(0.25, 1.05, 0, 0.5, 2.1, 1.0, 0x3f4a56, lockerGroup);
+box(0.5, 2.15, 0, 0.6, 0.12, 1.1, 0x2b333c, lockerGroup);
+
+const lockerPivot = new THREE.Group();
+lockerPivot.position.set(0, 1.05, -0.5);
+lockerGroup.add(lockerPivot);
+box(0.0, 0, 0.5, 0.05, 2.0, 0.98, 0x556170, lockerPivot);
+box(-0.04, 0.0, 0.9, 0.06, 0.14, 0.1, 0xd9b23c, lockerPivot);
+
+const noteMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(0.35, 0.48),
+  new THREE.MeshLambertMaterial({ color: 0xf5f0dc, side: THREE.DoubleSide })
+);
+noteMesh.position.set(0.05, 1.15, 10.0);
+noteMesh.rotation.y = -Math.PI / 2;
+noteMesh.visible = false;
+scene.add(noteMesh);
+
+const kellerKeyMesh = makeKey();
+kellerKeyMesh.position.set(0.2, 0.85, 10.0);
+kellerKeyMesh.rotation.y = -Math.PI / 2;
+kellerKeyMesh.visible = false;
+scene.add(kellerKeyMesh);
+
+/* ============================================================
+   LEHRERZIMMER
+   ============================================================ */
+box(-16, 0.76, -9, 3.2, 0.1, 1.3, 0x8a6a44);
+box(-16, 0.38, -9, 0.15, 0.76, 0.15, 0x6a4f33);
+box(-17.4, 0.5, -8.2, 0.5, 0.06, 0.5, 0x333a44);
+box(-14.6, 0.5, -9.8, 0.5, 0.06, 0.5, 0x333a44);
+
+const cabinet = new THREE.Group();
+cabinet.position.set(-22, 0, -14.4);
+scene.add(cabinet);
+const cabMat = new THREE.MeshLambertMaterial({ color: 0x5a4432 });
+box(-0.6, 1.1, 0, 0.08, 2.2, 0.62, cabMat, cabinet);
+box(-0.30, 1.1, -0.28, 0.6, 2.2, 0.06, cabMat, cabinet);
+box(-0.30, 1.1, 0.28, 0.6, 2.2, 0.06, cabMat, cabinet);
+box(-0.30, 2.17, 0, 0.62, 0.07, 0.6, cabMat, cabinet);
+box(-0.30, 0.05, 0, 0.62, 0.1, 0.6, cabMat, cabinet);
+
+box(-11, 1.1, -13.5, 0.7, 2.2, 0.7, 0x5a4432);
+box(-11, 1.1, -12.4, 0.7, 2.2, 0.7, 0x5a4432);
+
+const tableKey = makeKey();
+tableKey.position.set(-16, 0.86, -9);
+tableKey.visible = false;
+scene.add(tableKey);
+
+const sleepingTeacher = makePerson(0x2f3542, 0xe0b090);
+sleepingTeacher.position.set(-16, -0.35, -8.3);
+sleepingTeacher.visible = false;
+scene.add(sleepingTeacher);
+
+const npcA = makePerson(0x2b2b3a, 0xdeb090);
+const npcB = makePerson(0x3a2b2b, 0xd8a888);
+npcA.position.set(-18, 0, -6.5); npcA.rotation.y = Math.PI;
+npcB.position.set(-14, 0, -6.5); npcB.rotation.y = Math.PI;
+npcA.visible = false; npcB.visible = false;
+scene.add(npcA, npcB);
+
+/* Deko-Klassenzimmer */
+for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) makeDesk(-6 + i * 3.5, -12 + j * 3);
+for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) {
+  makeDesk(-30 + i * 3.5, -12 + j * 3);
+  makeDesk(-4 + i * 3.5, 5 + j * 3);
+}
+
+/* ============================================================
+   KELLER
+   ============================================================ */
+const CEL = { cx: 205, cz: 0 };
+const celWallMat = new THREE.MeshLambertMaterial({ color: 0x4a443c });
+vw(CEL.cx - 10, -8, 8, -1, 0, celWallMat, 3.5);
+vw(CEL.cx + 10, -8, 8, -1, 0, celWallMat, 3.5);
+hw(-8, CEL.cx - 10, CEL.cx + 10, -1, 0, celWallMat, 3.5);
+hw(8, CEL.cx - 10, CEL.cx + 10, -1, 0, celWallMat, 3.5);
+const celFloor = new THREE.Mesh(new THREE.BoxGeometry(21, 0.2, 17), new THREE.MeshLambertMaterial({ color: 0x2e2a26 }));
+celFloor.position.set(CEL.cx, -0.1, 0); scene.add(celFloor);
+const celCeil = new THREE.Mesh(new THREE.BoxGeometry(21, 0.2, 17), new THREE.MeshLambertMaterial({ color: 0x1e1c1a }));
+celCeil.position.set(CEL.cx, 3.5, 0); scene.add(celCeil);
+
+const photoMeshes = [];
+const photoPositions = [
+  [CEL.cx - 6, 1.8, -7.8, 0], [CEL.cx + 0, 1.8, -7.8, 0], [CEL.cx + 6, 1.8, -7.8, 0],
+  [CEL.cx - 9.8, 1.8, -2, Math.PI / 2], [CEL.cx - 9.8, 1.8, 3, Math.PI / 2]
+];
+for (let i = 0; i < photoPositions.length; i++) {
+  const p = photoPositions[i];
+  const tex = photoTexture([0,1,2][i % 3]);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 1.5), new THREE.MeshLambertMaterial({ map: tex }));
+  m.position.set(p[0], p[1], p[2]);
+  m.rotation.y = p[3];
+  scene.add(m);
+  photoMeshes.push(m);
+}
+
+const cellarBackDoor = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.2, 0.12), doorMat);
+cellarBackDoor.position.set(CEL.cx, 1.1, 7.8);
+scene.add(cellarBackDoor);
+
+/* ============================================================
+   SCHULHOF
+   ============================================================ */
+const YARD = { x: 400, z: 0 };
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 160), new THREE.MeshLambertMaterial({ color: 0x36402f }));
+ground.rotation.x = -Math.PI / 2;
+ground.position.set(YARD.x, 0, YARD.z);
+scene.add(ground);
+
+for (let i = -6; i <= 6; i++) box(YARD.x + i * 8, 1.2, YARD.z - 30, 0.3, 2.4, 0.3, 0x2a2f28);
+box(YARD.x - 25, 3, YARD.z + 22, 40, 6, 1, 0x2b2b30);
+box(YARD.x - 25, 6.2, YARD.z + 22, 42, 0.5, 2, 0x1e1e22);
+
+function makeJet() {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0x6d7883 });
+  const dark = new THREE.MeshLambertMaterial({ color: 0x2a2f36 });
+  const glass = new THREE.MeshLambertMaterial({ color: 0x88ccff, transparent: true, opacity: 0.55 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.65, 8, 8), mat);
+  body.rotation.x = Math.PI / 2; g.add(body);
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.9, 3.2, 8), mat);
+  nose.rotation.x = -Math.PI / 2; nose.position.z = -5.6; g.add(nose);
+  const wing = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.22, 2.6), mat);
+  wing.position.set(0, -0.25, 0.6); g.add(wing);
+  const wingL = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.18, 1.6), dark);
+  wingL.position.set(-4.2, -0.25, 1.6); g.add(wingL);
+  const wingR = wingL.clone(); wingR.position.x = 4.2; g.add(wingR);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.2, 1.4), mat);
+  tail.position.set(0, 0.55, 3.9); g.add(tail);
+  const fin = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.7, 1.5), mat);
+  fin.position.set(0, 1.3, 3.9); g.add(fin);
+  const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.7, 10, 8), glass);
+  cockpit.position.set(0, 0.55, -2.6);
+  cockpit.scale.set(1, 0.75, 1.9); g.add(cockpit);
+  return g;
+}
+const jet = makeJet();
+jet.position.set(YARD.x, 30, YARD.z);
+scene.add(jet);
+
+const demian = makePerson(0x1e2a3a, 0xe0b090);
+demian.position.set(YARD.x + 3.4, 0, YARD.z + 4);
+demian.visible = false;
+scene.add(demian);
+
+/* ============================================================
+   NPCs
+   ============================================================ */
+const npcs = [];
+const corridorWaypoints = [];
+for (let x = -34; x <= 42; x += 3) corridorWaypoints.push({ x, z: -1 });
+for (let x = -34; x <= 42; x += 3) corridorWaypoints.push({ x, z: 1 });
+
+const roomWaypoints = [
+  { x: -30, z: 6 }, { x: -25, z: 10 }, { x: -14, z: 8 }, { x: -10, z: 5 },
+  { x: 5, z: 6 }, { x: 15, z: 10 }, { x: 30, z: 8 },
+  { x: -14, z: -8 }, { x: -20, z: -12 }, { x: -4, z: -8 },
+  { x: 10, z: -10 }, { x: 30, z: -8 }
+];
+
+function pickWaypoint() {
+  const useRoom = Math.random() < 0.35;
+  const arr = useRoom ? roomWaypoints : corridorWaypoints;
+  const p = arr[Math.floor(Math.random() * arr.length)];
+  return { x: p.x, z: p.z };
+}
+
+function spawnNPC(floor, startX, startZ) {
+  const colors = [0x3b5a8c, 0x8c3b4a, 0x4a7c4a, 0x7a6a3a, 0x5a4a7c, 0x3a6a6a, 0x6a3a5a, 0x4a6a3a, 0x8a4a2a];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  const p = makePerson(color);
+  const y = floor === 0 ? -0.32 : UPPER_BASE - 0.32;
+  p.position.set(startX, y, startZ);
+  scene.add(p);
+  npcs.push({
+    mesh: p, floor: floor,
+    speed: 0.8 + Math.random() * 1.0,
+    target: pickWaypoint()
+  });
+}
+
+spawnNPC(0, -30, 0); spawnNPC(0, -20, 1); spawnNPC(0, -12, -1);
+spawnNPC(0, -4, 0); spawnNPC(0, 4, 1); spawnNPC(0, 12, -1);
+spawnNPC(0, 20, 0); spawnNPC(0, 28, 1); spawnNPC(0, 35, -1);
+spawnNPC(0, -15, 8); spawnNPC(0, 8, -8);
+spawnNPC(1, -30, 0); spawnNPC(1, -18, 1); spawnNPC(1, -6, -1);
+spawnNPC(1, 6, 0); spawnNPC(1, 18, 1); spawnNPC(1, 30, -1);
+spawnNPC(1, -25, 8); spawnNPC(1, 12, -8);
+
+function updateNPCs(dt) {
+  for (let i = 0; i < npcs.length; i++) {
+    const npc = npcs[i];
+    const dx = npc.target.x - npc.mesh.position.x;
+    const dz = npc.target.z - npc.mesh.position.z;
+    const dist = Math.hypot(dx, dz);
+
+    if (dist < 0.6) { npc.target = pickWaypoint(); continue; }
+
+    const nx = npc.mesh.position.x + (dx / dist) * npc.speed * dt;
+    const nz = npc.mesh.position.z + (dz / dist) * npc.speed * dt;
+
+    if (!blocked(nx, nz, npc.floor)) {
+      npc.mesh.position.x = nx;
+      npc.mesh.position.z = nz;
+    } else {
+      npc.target = pickWaypoint();
+    }
+    npc.mesh.rotation.y = Math.atan2(dx, dz);
+  }
+}
+
+/* ============================================================
+   SPIELER
+   ============================================================ */
+const player = {
+  pos: new THREE.Vector3(-28, 0, 13),
+  eye: 1.6,
+  walk: isMobile ? 3.8 : 4.3,
+  run: isMobile ? 6.4 : 7.2,
+  floor: 0
+};
+let yaw = 0, pitch = 0;
+let canMove = false;
+let gameStarted = false;
+const keys = {};
+const moveInput = { x: 0, y: 0 };
+
+/* DOM */
+const promptEl    = document.getElementById('prompt');
+const subtitleEl  = document.getElementById('subtitle');
+const objectiveEl = document.getElementById('objective');
+const fadeEl      = document.getElementById('fade');
+const joyBase     = document.getElementById('joyBase');
+const joyKnob     = document.getElementById('joyKnob');
+const btnE        = document.getElementById('btnE');
+const lookHint    = document.getElementById('lookHint');
+const floorInd    = document.getElementById('floorIndicator');
+
+/* ============================================================
+   START-FUNKTION (vom äußeren Skript aufgerufen)
+   ============================================================ */
+window.__startGameNow = function() {
+  if (gameStarted) return;
+  gameStarted = true;
+  audio();
+  if (!isTouch) {
+    try { renderer.domElement.requestPointerLock(); } catch(e) {}
+  }
+};
+if (window.__pendingStart) {
+  window.__pendingStart = false;
+  window.__startGameNow();
+}
+
+/* Pointer Lock */
+let locked = false;
+renderer.domElement.addEventListener('click', function() {
+  if (!locked && !isTouch && gameStarted) {
+    try { renderer.domElement.requestPointerLock(); } catch(e) {}
+  }
+});
+document.addEventListener('pointerlockchange', function() {
+  locked = document.pointerLockElement === renderer.domElement;
+});
+document.addEventListener('mousemove', function(e) {
+  if (!locked || isTouch) return;
+  yaw -= e.movementX * 0.0022;
+  pitch -= e.movementY * 0.0022;
+  pitch = Math.max(-1.4, Math.min(1.4, pitch));
+});
+
+/* Tastatur */
+addEventListener('keydown', function(e) {
+  keys[e.code] = true;
+  if (e.code === 'KeyE') tryInteract();
+  if (['KeyW','KeyA','KeyS','KeyD','Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].indexOf(e.code) >= 0) e.preventDefault();
+});
+addEventListener('keyup', function(e) { keys[e.code] = false; });
+
+/* ============================================================
+   TOUCH-STEUERUNG
+   ============================================================ */
+function setupTouchControls() {
+  const canvas = renderer.domElement;
+  const JOY_R = 59;
+  let joyId = null;
+  let joyOriginX = 0, joyOriginY = 0;
+  const lookTouches = {};
+
+  function showJoy(x, y) {
+    joyBase.style.display = 'block';
+    joyKnob.style.display = 'block';
+    joyBase.style.left = x + 'px'; joyBase.style.top = y + 'px';
+    joyKnob.style.left = x + 'px'; joyKnob.style.top = y + 'px';
+  }
+  function moveKnob(x, y) {
+    joyKnob.style.left = x + 'px'; joyKnob.style.top = y + 'px';
+  }
+  function hideJoy() {
+    joyBase.style.display = 'none';
+    joyKnob.style.display = 'none';
+    moveInput.x = 0; moveInput.y = 0;
+  }
+
+  canvas.addEventListener('touchstart', function(e) {
+    if (!gameStarted) return;
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      const isButtonZone = t.clientX > innerWidth - 130 && t.clientY > innerHeight - 150;
+      if (t.clientX < innerWidth * 0.5 && joyId === null && !isButtonZone) {
+        joyId = t.identifier;
+        joyOriginX = t.clientX; joyOriginY = t.clientY;
+        showJoy(joyOriginX, joyOriginY);
+      } else if (t.clientX >= innerWidth * 0.5 && !isButtonZone) {
+        lookTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+        if (lookHint) { lookHint.style.opacity = '0'; }
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', function(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === joyId) {
+        let dx = t.clientX - joyOriginX;
+        let dy = t.clientY - joyOriginY;
+        const len = Math.hypot(dx, dy) || 1;
+        if (len > JOY_R) { dx = dx / len * JOY_R; dy = dy / len * JOY_R; }
+        moveKnob(joyOriginX + dx, joyOriginY + dy);
+        moveInput.x = dx / JOY_R;
+        moveInput.y = dy / JOY_R;
+      } else if (lookTouches[t.identifier]) {
+        const prev = lookTouches[t.identifier];
+        const dx = t.clientX - prev.x;
+        const dy = t.clientY - prev.y;
+        yaw -= dx * 0.0045;
+        pitch -= dy * 0.0045;
+        pitch = Math.max(-1.4, Math.min(1.4, pitch));
+        lookTouches[t.identifier] = { x: t.clientX, y: t.clientY };
+      }
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  function endTouch(e) {
+    for (let i = 0; i < e.changedTouches.length; i++) {
+      const t = e.changedTouches[i];
+      if (t.identifier === joyId) { joyId = null; hideJoy(); }
+      delete lookTouches[t.identifier];
+    }
+    e.preventDefault();
+  }
+  canvas.addEventListener('touchend', endTouch, { passive: false });
+  canvas.addEventListener('touchcancel', endTouch, { passive: false });
+
+  btnE.addEventListener('touchstart', function(e) {
+    e.preventDefault(); e.stopPropagation(); tryInteract();
+  }, { passive: false });
+  btnE.addEventListener('click', function(e) {
+    e.preventDefault(); if (!isTouch) tryInteract();
+  });
+}
+if (isTouch) setupTouchControls();
+
+/* Untertitel */
+let subTimer = null;
+function say(text, dur) {
+  if (dur === undefined) dur = 4.2;
+  subtitleEl.textContent = text;
+  subtitleEl.style.opacity = 1;
+  clearTimeout(subTimer);
+  subTimer = setTimeout(function() { subtitleEl.style.opacity = 0; }, dur * 1000);
+}
+function setObjective(text) { objectiveEl.innerHTML = text ? '▶ ' + text : ''; }
+
+/* ============================================================
+   INTERAKTIONEN
+   ============================================================ */
+const interactables = [];
+function addInteractable(x, y, z, label, action, radius, floor) {
+  if (radius === undefined) radius = 2.2;
+  if (floor === undefined) floor = 0;
+  const it = { pos: new THREE.Vector3(x, y, z), label: label, action: action, radius: radius, enabled: false, floor: floor };
+  interactables.push(it);
+  return it;
+}
+let nearest = null;
+
+function tryInteract() {
+  if (!nearest || !gameStarted) return;
+  if (!canMove && state !== 'hiding') return;
+  nearest.action();
+}
+
+function updateInteractPrompt() {
+  let best = null, bestD = Infinity;
+  for (let i = 0; i < interactables.length; i++) {
+    const it = interactables[i];
+    if (!it.enabled) continue;
+    if (it.floor !== player.floor) continue;
+    const dx = it.pos.x - player.pos.x;
+    const dz = it.pos.z - player.pos.z;
+    const d = Math.hypot(dx, dz);
+    if (d < it.radius && d < bestD) { bestD = d; best = it; }
+  }
+  nearest = best;
+
+  if (best) {
+    promptEl.textContent = best.label;
+    promptEl.style.opacity = 1;
+  } else {
+    promptEl.style.opacity = 0;
+  }
+  if (isTouch) btnE.classList.toggle('active', !!best);
+}
+
+/* ============================================================
+   STORY
+   ============================================================ */
+let state = 'intro';
+let timer = 0;
+let introIndex = 0;
+let hasKey = false;
+let hasCellarKey = false;
+let chaseTeacher = null;
+let hidden = false;
+let photosSeen = 0;
+
+const introLines = [
+  [0.6,  'Lehrer: So ... wenn wir die Gleichung jetzt umstellen, dann ...', 4.0],
+  [4.8,  'Mitschüler (flüstert): Psst ... hast du die Hausaufgaben?', 4.0],
+  [9.0,  'Lehrer: RUHE da hinten! Also – x ist gleich sieben. Alles klar?', 4.5],
+  [13.8, '🔔 Durchsage: Wegen des starken Regens ist ab sofort Regenpause.', 4.5],
+  [18.4, '🔔 Durchsage: Alle Schüler bleiben im Gebäude. Die Aufsicht beginnt.', 4.5],
+  [23.2, 'Du stehst auf.', 2.5]
+];
+
+const objectives = {
+  free:     'Sieh dich um. Vielleicht findest du einen Raum, den du noch nie gesehen hast.',
+  findKey:  'Nimm den Schlüssel vom Tisch.',
+  findLock: 'Finde den Schrank, der zu diesem Schlüssel passt.',
+  cellar:   'Der Schlüssel trägt die Aufschrift „KELLER". Finde die Kellertür.',
+  cellarIn: 'Sieh dir die Fotos an.',
+  locked:   'Die Schule ist verschlossen. Finde einen Ausgang.',
+  teacher:  'Der Lehrer schläft. Nimm den Schlüssel aus seiner Gesäßtasche.',
+  chase:    'LAUF! Raus hier!',
+  yard:     'Steig in den Jet.'
+};
+
+function setState(s) {
+  state = s;
+  timer = 0;
+  if (objectives[s]) setObjective(objectives[s]);
+}
+
+function teleportTo(x, z, yawSet, floorSet) {
+  player.pos.set(x, 0, z);
+  if (floorSet !== undefined) {
+    player.floor = floorSet;
+  }
+  yaw = yawSet;
+  pitch = 0;
+  moveInput.x = 0; moveInput.y = 0;
+  if (isTouch) { joyBase.style.display = 'none'; joyKnob.style.display = 'none'; }
+  updateFloorIndicator();
+}
+
+function updateFloorIndicator() {
+  floorInd.textContent = 'EBENE ' + player.floor;
+}
+
+/* Interactables */
+const itKellerDoor = addInteractable(38, 1.1, -2, 'Kellertür öffnen', function() {
+  if (!hasCellarKey) { say('Verschlossen. Du brauchst einen Schlüssel.', 3.5); return; }
+  doorSound();
+  teleportTo(CEL.cx, 6.2, 0, 0);
+  setState('cellarIn');
+  say('Kalte Luft schlägt dir entgegen. Es riecht nach feuchtem Beton.', 4);
+}, isMobile ? 3.2 : 2.6, 0);
+itKellerDoor.enabled = true;
+
+const itExitDoor = addInteractable(40, 1.15, 2, 'Tür nach draußen', function() {
+  if (state === 'chase' || state === 'locked' || state === 'teacher') {
+    doorSound();
+    teleportTo(YARD.x, 22, 0, 0);
+    setState('yard');
+    say('Du rennst hinaus in den Regen. Hinter dir fällt die Tür ins Schloss.', 4.5);
+    startYardSequence();
+  } else {
+    say('Abgeschlossen. Die Schule ist geschlossen.', 3);
+  }
+}, isMobile ? 3.2 : 2.6, 0);
+itExitDoor.enabled = true;
+
+const itCabinet = addInteractable(-22, 1.2, -14.1, 'Im Schrank verstecken', function() {
+  if (state === 'enterLehrerzimmer') hideInCabinet();
+  else if (state === 'hiding' && timer > 13) exitCabinet();
+}, isMobile ? 3.0 : 2.4, 0);
+itCabinet.enabled = false;
+
+const itTableKey = addInteractable(-16, 0.9, -9, 'Schlüssel nehmen', function() {
+  tableKey.visible = false;
+  itTableKey.enabled = false;
+  hasKey = true;
+  pickupSound();
+  say('Ein kleiner Schlüssel. Keine Aufschrift – nur eine Kerbe. Wofür ist der?', 4.5);
+  setState('findLock');
+}, isMobile ? 3.0 : 2.2, 0);
+itTableKey.enabled = false;
+
+const itLocker = addInteractable(-10, 1.1, 10, 'Spind öffnen', function() {
+  if (!hasKey) { say('Verschlossen. Ein kleines Schloss hängt davor.', 3); return; }
+  doorSound();
+  lockerPivot.rotation.y = -2.0;
+  noteMesh.visible = true;
+  kellerKeyMesh.visible = true;
+  itLocker.enabled = false;
+  itNote.enabled = true;
+  itCellarKey.enabled = true;
+  say('Der Schlüssel passt! Im Spind liegen ein Zettel und noch ein Schlüssel.', 4.5);
+}, isMobile ? 3.2 : 2.4, 0);
+itLocker.enabled = true;
+
+const itNote = addInteractable(-10, 1.15, 10, 'Zettel lesen', function() {
+  say('Zettel: „Die Lehrer sind nicht so, wie sie aussehen. Sie foltern Schüler. Wenn du das liest – LAUF."', 7);
+  itNote.enabled = false;
+}, isMobile ? 2.8 : 2.0, 0);
+itNote.enabled = false;
+
+const itCellarKey = addInteractable(-10, 0.9, 10, 'Schlüssel nehmen', function() {
+  kellerKeyMesh.visible = false;
+  itCellarKey.enabled = false;
+  hasCellarKey = true;
+  pickupSound();
+  say('Auf dem Schlüssel steht: KELLER', 4);
+  setState('cellar');
+}, isMobile ? 2.8 : 2.0, 0);
+itCellarKey.enabled = false;
+
+photoMeshes.forEach(function(m, i) {
+  const it = addInteractable(m.position.x, 1.6, m.position.z, 'Foto ansehen', function() {
+    if (it._seen) return;
+    it._seen = true;
+    photosSeen++;
+    const lines = [
+      'Foto 1: Ein Stuhl. Lederriemen. Kratzspuren am Boden.',
+      'Foto 2: Reihen von Schülern. Sie sehen nicht ängstlich aus – sie sehen leer aus.',
+      'Foto 3: Ein Raum. Eine Lampe. Und jemand, der nicht mehr steht.'
+    ];
+    say(lines[i % 3], 5.5);
+    it.enabled = false;
+    if (photosSeen >= 3) {
+      setTimeout(function() {
+        say('Du hast genug gesehen. Raus hier. SOFORT.', 5);
+        setObjective('Zurück durch die Kellertür.');
+      }, 3000);
+    }
+  }, isMobile ? 3.2 : 2.4, -1);
+  it.enabled = true;
+});
+
+const itCellarBack = addInteractable(CEL.cx, 1.1, 7.8, 'Zurück in den Korridor', function() {
+  doorSound();
+  teleportTo(38, -2, -Math.PI / 2, 0);
+  setState('locked');
+  say('Du läufst den Gang entlang zur Eingangstür ...', 3);
+  setTimeout(function() {
+    say('Abgeschlossen. Alle Türen sind zu. Die Schule ist geschlossen – und du bist drin.', 6);
+  }, 3200);
+  setTimeout(function() {
+    sleepingTeacher.visible = true;
+    say('Irgendwo im Gebäude hört man eine Tür. Du bist doch nicht allein.', 5);
+    setState('teacher');
+  }, 9500);
+}, isMobile ? 3.2 : 2.4, -1);
+itCellarBack.enabled = true;
+
+const itTeacherKey = addInteractable(-16, 1.0, -8.3, 'Schlüssel aus der Tasche nehmen', function() {
+  itTeacherKey.enabled = false;
+  pickupSound();
+  say('Du ziehst den Schlüssel heraus ...', 2);
+  setTimeout(function() {
+    sleepingTeacher.visible = false;
+    startChase();
+  }, 1400);
+}, isMobile ? 3.0 : 2.4, 0);
+itTeacherKey.enabled = false;
+
+const itJet = addInteractable(YARD.x, 1.2, YARD.z, 'In den Jet steigen', function() {
+  itJet.enabled = false;
+  startEnding();
+}, isMobile ? 9.0 : 7.0, 0);
+itJet.enabled = false;
+
+/* ============================================================
+   AKTIONEN
+   ============================================================ */
+function hideInCabinet() {
+  hidden = true;
+  canMove = false;
+  player.pos.set(-22, 0, -14.35);
+  yaw = Math.PI; pitch = 0;
+  moveInput.x = 0; moveInput.y = 0;
+  if (isTouch) { joyBase.style.display = 'none'; joyKnob.style.display = 'none'; }
+  itCabinet.label = 'Warten ...';
+  setState('hiding');
+  setObjective('');
+}
+
+function exitCabinet() {
+  hidden = false;
+  canMove = true;
+  player.pos.set(-22, 0, -13.2);
+  yaw = Math.PI;
+  itCabinet.enabled = false;
+  say('Du schlüpfst aus dem Schrank. Der Raum ist leer.', 3.5);
+  setState('findKey');
+}
+
+function startChase() {
+  chaseTeacher = makePerson(0x2f3542, 0xe0b090);
+  chaseTeacher.position.set(-16, 0, -8);
+  scene.add(chaseTeacher);
+  setState('chase');
+  say('Der Lehrer schreckt hoch: „HEY! BLEIB STEHEN!"', 4);
+  beep(180, 0.5, 0.09, 'sawtooth');
+}
+
+function startYardSequence() {
+  demian.visible = true;
+  setTimeout(function() {
+    say('Ein Kampfjet sinkt durch die Regenwolken und setzt auf dem Schulhof auf.', 5);
+  }, 2500);
+  setTimeout(function() {
+    say('Demian: „Komm, steig schnell ein!"', 5);
+    itJet.enabled = true;
+  }, 6500);
+}
+
+function startEnding() {
+  canMove = false;
+  setObjective('');
+  if (isTouch) { joyBase.style.display = 'none'; joyKnob.style.display = 'none'; }
+  fadeEl.style.opacity = 1;
+
+  setTimeout(function() {
+    document.getElementById('endTitle').textContent = 'ABFLUG';
+    document.getElementById('endText').innerHTML =
+      'Du kletterst in die Kanzel. Der Jet hebt ab – die Schule schrumpft unter dir zu einem Punkt.';
+    document.getElementById('endOverlay').style.display = 'flex';
+  }, 2600);
+
+  setTimeout(function() {
+    document.getElementById('endTitle').textContent = 'VERLASSENE MILITÄRBASIS';
+    document.getElementById('endText').innerHTML =
+      'Irgendwo im Nirgendwo landet ihr. Verrostete Hallen, leere Türme, kein Mensch weit und breit.';
+  }, 6200);
+
+  setTimeout(function() {
+    document.getElementById('endTitle').textContent = 'ENDE';
+    document.getElementById('endText').innerHTML =
+      '<span class="name">Demian</span> dreht sich zu dir um und sagt:<br><br>' +
+      '„Bleib hier. Rühr dich nicht vom Fleck.<br>Ich hole dich bald ab."<br><br>' +
+      '<span style="color:#5d6b80;font-size:14px">— ENDE —</span>';
+    beep(220, 1.5, 0.05, 'sine');
+  }, 10500);
+}
+
+/* ============================================================
+   BEWEGUNG
+   ============================================================ */
+let stepAcc = 0;
+
+function handleMovement(dt) {
+  const forward = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
+  const right   = new THREE.Vector3( Math.cos(yaw), 0, -Math.sin(yaw));
+  const move = new THREE.Vector3();
+
+  if (keys['KeyW'] || keys['ArrowUp'])    move.add(forward);
+  if (keys['KeyS'] || keys['ArrowDown'])  move.sub(forward);
+  if (keys['KeyD'] || keys['ArrowRight']) move.add(right);
+  if (keys['KeyA'] || keys['ArrowLeft'])  move.sub(right);
+
+  const joyMag = Math.hypot(moveInput.x, moveInput.y);
+  if (joyMag > 0.08) {
+    move.add(forward.clone().multiplyScalar(-moveInput.y));
+    move.add(right.clone().multiplyScalar(moveInput.x));
+  }
+
+  if (move.lengthSq() > 0) {
+    move.normalize();
+    const running = keys['ShiftLeft'] || keys['ShiftRight'] || joyMag > 0.82;
+    const speed = running ? player.run : player.walk;
+    const dx = move.x * speed * dt;
+    const dz = move.z * speed * dt;
+
+    const nx = player.pos.x + dx;
+    if (!blocked(nx, player.pos.z, player.floor)) player.pos.x = nx;
+
+    const nz = player.pos.z + dz;
+    if (!blocked(player.pos.x, nz, player.floor)) player.pos.z = nz;
+
+    stepAcc += dt * speed;
+    if (stepAcc > 2.6) { stepAcc = 0; stepSound(); }
+  }
+}
+
+/* ============================================================
+   KAMERA
+   ============================================================ */
+function updateCamera() {
+  const baseEye = player.floor === 0 ? 1.6 : 1.6 + UPPER_BASE;
+  camera.position.set(player.pos.x, baseEye + (hidden ? -0.1 : 0), player.pos.z);
+  camera.rotation.y = yaw;
+  camera.rotation.x = pitch;
+  camera.rotation.z = 0;
+}
+
+/* ============================================================
+   STORY-UPDATE
+   ============================================================ */
+let chaseStep = 0;
+
+function updateStory(dt) {
+  switch (state) {
+    case 'intro': {
+      while (introIndex < introLines.length && timer >= introLines[introIndex][0]) {
+        const line = introLines[introIndex];
+        say(line[1], line[2]);
+        if (introIndex === 3 || introIndex === 4) beep(1400, 0.4, 0.05);
+        introIndex++;
+      }
+      if (timer > 25.5) {
+        canMove = true;
+        setState('free');
+        say(isTouch
+          ? 'Regenpause. Nutze den Joystick links und wische rechts zum Umsehen.'
+          : 'Regenpause. Du hast Zeit – und die Schule ist groß.', 5.5);
+      }
+      break;
+    }
+    case 'free': {
+      const p = player.pos;
+      if (p.x > -24 && p.x < -10 && p.z > -15 && p.z < -2 && player.floor === 0) {
+        setState('enterLehrerzimmer');
+        say('Ein Raum, den du noch nie gesehen hast. Die Tür stand offen ...', 4);
+      }
+      break;
+    }
+    case 'enterLehrerzimmer': {
+      if (timer > 3.0 && timer < 3.2) {
+        beep(110, 0.15, 0.09, 'triangle');
+        say('Schritte auf dem Gang! Sie kommen näher ...', 4);
+        itCabinet.enabled = true;
+        setObjective('VERSTECK DICH! Geh zum Schrank und tippe E.');
+      }
+      if (timer > 4.0 && timer < 4.2) beep(110, 0.15, 0.09, 'triangle');
+      if (timer > 5.0 && timer < 5.2) beep(110, 0.15, 0.09, 'triangle');
+      if (timer > 12) caught();
+      break;
+    }
+    case 'hiding': {
+      if (timer > 0.5 && timer < 0.7) {
+        doorSound();
+        npcA.visible = true; npcB.visible = true;
+        say('Die Tür geht auf. Zwei Lehrer kommen herein.', 3.5);
+      }
+      if (timer > 3.5 && timer < 3.7) say('Lehrer A: „... und der Neue? Hat er die Fotos gesehen?"', 4.5);
+      if (timer > 8.0 && timer < 8.2) say('Lehrer B: „Nein. Der Keller ist abgeschlossen. Hier, der Schlüssel."', 4.5);
+      if (timer > 12.5 && timer < 12.7) say('Lehrer A: „Leg ihn auf den Tisch. Wir müssen los."', 4);
+      if (timer > 15.5 && timer < 15.7) {
+        npcA.visible = false; npcB.visible = false;
+        doorSound();
+        tableKey.visible = true;
+        itTableKey.enabled = true;
+        say('Die Schritte entfernen sich. Sie sind weg.', 3.5);
+      }
+      if (timer > 17) {
+        itCabinet.label = 'Schrank verlassen';
+        itCabinet.enabled = true;
+        setObjective('Verlasse den Schrank (E) und nimm den Schlüssel.');
+      }
+      break;
+    }
+    case 'findLock': {
+      const p = player.pos;
+      if (!state._hint && p.x > -22 && p.x < -6 && p.z > 2 && p.z < 15) {
+        state._hint = true;
+        say('Eine Spindanlage. Einer davon hat ein Schloss ...', 4);
+      }
+      break;
+    }
+    case 'cellarIn': {
+      if (timer > 4 && !state._hint2) {
+        state._hint2 = true;
+        say('An den Wänden hängen Fotos. Sieh sie dir an (E).', 5);
+      }
+      break;
+    }
+    case 'teacher': {
+      if (player.pos.z < -2 && player.pos.x > -24 && player.pos.x < -10 && !itTeacherKey.enabled) {
+        itTeacherKey.enabled = true;
+      }
+      break;
+    }
+    case 'chase': {
+      if (chaseTeacher) {
+        const dir = new THREE.Vector3(
+          player.pos.x - chaseTeacher.position.x, 0,
+          player.pos.z - chaseTeacher.position.z
+        );
+        const dist = dir.length();
+        if (dist > 0.001) dir.normalize();
+
+        const spd = isMobile ? 3.0 : 3.4;
+        const nx = chaseTeacher.position.x + dir.x * spd * dt;
+        const nz = chaseTeacher.position.z + dir.z * spd * dt;
+        const r = 0.4;
+        let okX = true;
+        for (let i = 0; i < colliders.length; i++) {
+          const c = colliders[i];
+          if (c.floor !== 0) continue;
+          if (nx > c.minX - r && nx < c.maxX + r && chaseTeacher.position.z > c.minZ - r && chaseTeacher.position.z < c.maxZ + r) { okX = false; break; }
+        }
+        if (okX) chaseTeacher.position.x = nx;
+
+        let okZ = true;
+        for (let i = 0; i < colliders.length; i++) {
+          const c = colliders[i];
+          if (c.floor !== 0) continue;
+          if (chaseTeacher.position.x > c.minX - r && chaseTeacher.position.x < c.maxX + r && nz > c.minZ - r && nz < c.maxZ + r) { okZ = false; break; }
+        }
+        if (okZ) chaseTeacher.position.z = nz;
+
+        chaseTeacher.rotation.y = Math.atan2(dir.x, dir.z) + Math.PI;
+        if (dist < 1.35) caught();
+
+        chaseStep += dt * spd;
+        if (chaseStep > 2.0) { chaseStep = 0; beep(85, 0.1, 0.06, 'triangle'); }
+      }
+      break;
+    }
+    case 'yard': {
+      if (jet.position.y > 1.0) {
+        jet.position.y = Math.max(1.0, jet.position.y - dt * 7);
+      }
+      break;
+    }
+  }
+}
+
+function caught() {
+  canMove = false;
+  setState('caught');
+  if (isTouch) { joyBase.style.display = 'none'; joyKnob.style.display = 'none'; }
+  document.getElementById('endTitle').textContent = 'ERWISCHT';
+  document.getElementById('endText').innerHTML =
+    'Der Lehrer packt dich an der Schulter.<br>Was danach passiert, erzählt niemand.<br><br>' +
+    '<span style="color:#5d6b80;font-size:14px">— GAME OVER —</span>';
+  document.getElementById('endOverlay').style.display = 'flex';
+}
+
+/* ============================================================
+   LOOP
+   ============================================================ */
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+
+  if (gameStarted) timer += dt;
+
+  updateStory(dt);
+  updateNPCs(dt);
+  if (canMove && !hidden) handleMovement(dt);
+  updateInteractPrompt();
+  updateCamera();
+
+  renderer.render(scene, camera);
+}
+
+setObjective('');
+updateFloorIndicator();
+camera.position.set(player.pos.x, player.eye, player.pos.z);
+animate();
+
+})();
+</script>
+
+</body>
+</html>
