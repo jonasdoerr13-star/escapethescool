@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Schul-Albtraum</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #111;
+    color: #eee;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  #game {
+    width: 800px;
+    max-width: 100%;
+    background: #1c1c1c;
+    border: 3px solid #444;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+  }
+  #scene-img {
+    width: 100%;
+    height: 260px;
+    background: #000;
+    border: 2px solid #333;
+    border-radius: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 80px;
+    margin-bottom: 18px;
+    user-select: none;
+    overflow: hidden;
+    position: relative;
+  }
+  #scene-img .emoji { animation: float 3s ease-in-out infinite; }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  #text {
+    min-height: 100px;
+    font-size: 17px;
+    line-height: 1.6;
+    margin-bottom: 18px;
+    white-space: pre-wrap;
+  }
+  #choices button {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin: 8px 0;
+    background: #2a2a2a;
+    color: #eee;
+    border: 2px solid #555;
+    border-radius: 5px;
+    font-family: inherit;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.2s;
+    text-align: left;
+  }
+  #choices button:hover {
+    background: #3a3a3a;
+    border-color: #888;
+    transform: translateX(5px);
+  }
+  #choices button:active { transform: scale(0.98); }
+  .danger { border-color: #a33 !important; }
+  .danger:hover { background: #4a1a1a !important; }
+  .good { border-color: #3a3 !important; }
+  .good:hover { background: #1a4a1a !important; }
+  #inventory {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #333;
+    font-size: 14px;
+    color: #aaa;
+  }
+  #inventory span { color: #ffd700; }
+  .shake { animation: shake 0.4s; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="scene-img"><span class="emoji" id="emoji">🏫</span></div>
+  <div id="text"></div>
+  <div id="choices"></div>
+  <div id="inventory">Inventar: <span id="inv">–</span></div>
+</div>
+
+<script>
+const state = {
+  hasKey1: false,
+  hasKey2: false,
+  hasNote: false,
+  hasCellarKey: false,
+  hasExitKey: false,
+  current: 'start'
+};
+
+const scenes = {
+  start: {
+    emoji: '📚',
+    text: "Du sitzt im Unterricht. Der Lehrer steht vorne und erklärt gerade etwas über Geschichte.\nNeben dir flüstern andere Schüler. Plötzlich knistert die Lautsprecheranlage:",
+    choices: [
+      { label: "👉 Zuhören", next: 'regenpause' }
+    ]
+  },
+  regenpause: {
+    emoji: '🌧️',
+    text: "„Liebe Schülerinnen und Schüler, wegen des starken Regens entfällt die große Pause. Bitte bleibt in den Klassenräumen.“\n\nDu hast keine Lust, sitzen zu bleiben. Du schleichst dich aus dem Klassenzimmer und läufst durch die Flure.",
+    choices: [
+      { label: "🚶 Durch die Schule gehen", next: 'flur' }
+    ]
+  },
+  flur: {
+    emoji: '🚪',
+    text: "Die Flure sind leer. Überall Türen – die meisten verschlossen.\nDoch dann siehst du eine Tür, die einen Spalt weit offen steht. Ein Raum, den du noch nie gesehen hast.",
+    choices: [
+      { label: "👀 Neugierig hineinschauen", next: 'lehrerzimmer' },
+      { label: "🚶 Weitergehen", next: 'flur2' }
+    ]
+  },
+  flur2: {
+    emoji: '🚶',
+    text: "Du gehst weiter, doch irgendetwas zieht dich zu dieser Tür zurück. Dein Bauchgefühl sagt dir, dass du nachsehen musst.",
+    choices: [
+      { label: "🔙 Zurück zur offenen Tür", next: 'lehrerzimmer' }
+    ]
+  },
+  lehrerzimmer: {
+    emoji: '👨‍🏫',
+    text: "Du trittst ein. Es ist das LEHRERZIMMER! Überall Kaffeetassen, Stapel von Arbeiten, ein alter Aktenschrank.\nPlötzlich hörst du Schritte auf dem Flur – Lehrer kommen! Du musst dich verstecken!",
+    choices: [
+      { label: "🚪 In den Schrank verstecken", next: 'schrank' }
+    ]
+  },
+  schrank: {
+    emoji: '🚪',
+    text: "Du quetschst dich in den staubigen Schrank. Durch einen Spalt siehst du, wie zwei Lehrer den Raum betreten und reden.\nAuf einem Regalbrett direkt vor dir liegt ein kleiner Schlüssel. Du greifst ihn leise.",
+    choices: [
+      { label: "🔑 Schlüssel nehmen und warten", next: 'warten' }
+    ]
+  },
+  warten: {
+    emoji: '⏳',
+    text: "Nach einer gefühlten Ewigkeit gehen die Lehrer wieder. Du kletterst aus dem Schrank.\nIn deiner Hand: ein seltsamer Schlüssel mit der Gravur „LZ-2“.",
+    choices: [
+      { label: "🚪 Raus aus dem Lehrerzimmer", next: 'suche_raum' }
+    ],
+    onEnter: () => { state.hasKey1 = true; }
+  },
+  suche_raum: {
+    emoji: '🔍',
+    text: "Du läufst durch die Flure und suchst nach etwas, das zu diesem Schlüssel passt.\nIn einem Nebenraum entdeckst du einen alten, verschlossenen Schrank.",
+    choices: [
+      { label: "🔓 Mit dem Schlüssel öffnen", next: 'schrank2', require: 'hasKey1' },
+      { label: "🚶 Weiter suchen", next: 'suche_raum2' }
+    ]
+  },
+  suche_raum2: {
+    emoji: '🚶',
+    text: "Du findest nichts anderes. Der Schrank ist die einzige Spur.",
+    choices: [
+      { label: "🔙 Zurück zum Schrank", next: 'suche_raum' }
+    ]
+  },
+  schrank2: {
+    emoji: '🗄️',
+    text: "Klick! Der Schrank öffnet sich.\nDrinnen: ein zusammengefalteter Zettel und ein zweiter Schlüssel mit der Aufschrift „KELLER“.",
+    choices: [
+      { label: "📄 Zettel lesen", next: 'zettel' },
+      { label: "🔑 Beides einstecken", next: 'weiter_gehen' }
+    ]
+  },
+  zettel: {
+    emoji: '📄',
+    text: "Du faltest den Zettel auseinander. In krakeliger Schrift steht:\n\n„Die Lehrer sind nicht so nett, wie sie aussehen. Sie foltern Schüler. Im Keller findest du die Wahrheit. – Ein ehemaliger Schüler“\n\nDir läuft es eiskalt den Rücken herunter.",
+    choices: [
+      { label: "🔑 Schlüssel einstecken und zum Keller", next: 'weiter_gehen' }
+    ],
+    onEnter: () => { state.hasNote = true; }
+  },
+  weiter_gehen: {
+    emoji: '🔦',
+    text: "Du steckst Zettel und Schlüssel ein. Dein Herz klopft. Du gehst zum Schulkeller.\nDie Tür ist alt und knarzt, doch der Schlüssel passt. Dahinter: ein dunkler Raum.",
+    choices: [
+      { label: "🔦 Hineingehen", next: 'keller' }
+    ],
+    onEnter: () => { state.hasCellarKey = true; }
+  },
+  keller: {
+    emoji: '📸',
+    text: "Im Keller ist es kalt und feucht. An der Wand hängen Fotos – verstörende Bilder.\nLehrer, die Schüler in Käfige sperren. Experimente. Schreckliche Dinge.\n\nDas ist kein normaler Keller. Das ist ein Albtraum.",
+    choices: [
+      { label: "😨 Zurück nach oben rennen", next: 'abschluss' }
+    ]
+  },
+  abschluss: {
+    emoji: '🚪',
+    text: "Du rennst die Treppen hoch – doch als du zur Haupttür willst, stellst du fest:\nAlle Türen sind abgeschlossen. Die Schule wurde geschlossen. Du bist eingesperrt!",
+    choices: [
+      { label: "🔍 Nach einem Ausgang suchen", next: 'suche_ausgang' }
+    ]
+  },
+  suche_ausgang: {
+    emoji: '🚶',
+    text: "Du durchsuchst die Flure. Erst glaubst du, allein zu sein.\nDoch dann hörst du Schritte. Du versteckst dich hinter einer Ecke.\nEin Lehrer geht vorbei – direkt ins Lehrerzimmer!",
+    choices: [
+      { label: "👀 Zum Lehrerzimmer schleichen", next: 'lehrer_schlaeft' }
+    ]
+  },
+  lehrer_schlaeft: {
+    emoji: '😴',
+    text: "Du schleichst zum Lehrerzimmer und spähst durch den Türspalt.\nDer Lehrer sitzt auf einem Stuhl – und ist eingeschlafen! Sein Kopf nickt auf die Brust.\nHinten in seiner Hosentasche blitzt ein Schlüssel hervor.",
+    choices: [
+      { label: "🤫 Leise den Schlüssel nehmen", next: 'klauen' }
+    ]
+  },
+  klauen: {
+    emoji: '🔑',
+    text: "Du schleichst dich hinein und ziehst den Schlüssel ganz langsam aus seiner Tasche.\nDoch plötzlich – der Lehrer schnappt nach Luft und wacht auf!",
+    choices: [
+      { label: "🏃 RENNEN!", next: 'flucht' }
+    ]
+  },
+  flucht: {
+    emoji: '🏃',
+    text: "Du rennst! Die Treppen hinunter, durch die Flure, der Lehrer hinter dir her!\nDu erreichst die Haupttür, rammst den Schlüssel ins Schloss – Klick! – und stürmst nach draußen.",
+    choices: [
+      { label: "🌳 Auf den Schulhof rennen", next: 'kampfjet' }
+    ]
+  },
+  kampfjet: {
+    emoji: '✈️',
+    text: "Kaum bist du draußen, hörst du ein ohrenbetäubendes Dröhnen.\nEin Kampfjet landet mitten auf dem Schulhof! Die Kanzel öffnet sich – eine Person sitzt darin und winkt dir.",
+    choices: [
+      { label: "🛩️ Einsteigen", next: 'demian' }
+    ]
+  },
+  demian: {
+    emoji: '🧑‍✈️',
+    text: "„Ich bin Demian“, ruft er über den Lärm. „Steig schnell ein! Wir müssen hier weg!“\nDu kletterst in den Jet. Die Kanzel schließt sich, und du hebst ab.",
+    choices: [
+      { label: "🚀 Weiterfliegen", next: 'basis' }
+    ]
+  },
+  basis: {
+    emoji: '🏚️',
+    text: "Ihr fliegt über die Stadt hinaus – bis zu einer verlassenen Militärbasis in den Bergen.\nDer Jet landet sanft. Demian dreht sich zu dir um.",
+    choices: [
+      { label: "👂 Zuhören", next: 'ende' }
+    ]
+  },
+  ende: {
+    emoji: '🌅',
+    text: "„Hier bist du erstmal sicher“, sagt Demian. „Aber ich komme bald wieder, um dich abzuholen. Es gibt noch viel zu tun.“\n\nEr lächelt kurz, dann springt er aus dem Jet und verschwindet in der Dunkelheit.\n\nENDE",
+    choices: [
+      { label: "🔄 Nochmal spielen", next: 'start', reset: true }
+    ]
+  }
+};
+
+const emojiEl = document.getElementById('emoji');
+const textEl = document.getElementById('text');
+const choicesEl = document.getElementById('choices');
+const invEl = document.getElementById('inv');
+const gameEl = document.getElementById('game');
+
+function updateInventory() {
+  const items = [];
+  if (state.hasKey1) items.push('Schlüssel LZ-2');
+  if (state.hasNote) items.push('Zettel');
+  if (state.hasCellarKey) items.push('Kellerschlüssel');
+  if (state.hasExitKey) items.push('Ausgangsschlüssel');
+  invEl.textContent = items.length ? items.join(', ') : '–';
+}
+
+function render(sceneId) {
+  const scene = scenes[sceneId];
+  if (!scene) return;
+  if (scene.onEnter) scene.onEnter();
+
+  emojiEl.textContent = scene.emoji;
+  textEl.textContent = scene.text;
+  choicesEl.innerHTML = '';
+
+  scene.choices.forEach(choice => {
+    if (choice.require && !state[choice.require]) return;
+    const btn = document.createElement('button');
+    btn.textContent = choice.label;
+    if (choice.label.includes('RENNEN') || choice.label.includes('😨')) btn.classList.add('danger');
+    if (choice.label.includes('🔄') || choice.label.includes('🌳')) btn.classList.add('good');
+    btn.onclick = () => {
+      if (choice.reset) {
+        Object.assign(state, {
+          hasKey1: false, hasKey2: false, hasNote: false,
+          hasCellarKey: false, hasExitKey: false
+        });
+      }
+      updateInventory();
+      render(choice.next);
+    };
+    choicesEl.appendChild(btn);
+  });
+  updateInventory();
+}
+
+render('start');
+</script>
+</body>
+</html>
