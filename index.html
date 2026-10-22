@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CodeLingo</title>
+    <!-- Tailwind CSS für das Design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Ein paar eigene Animationen für den Duolingo-Look */
+        .btn-push { transition: all 0.1s; }
+        .btn-push:active { transform: translateY(4px); box-shadow: none !important; }
+        .screen { display: none; }
+        .screen.active { display: flex; }
+    </style>
+</head>
+<body class="bg-[#131F24] text-white font-sans h-screen w-screen overflow-hidden flex justify-center">
+
+    <!-- ========================================== -->
+    <!-- SCREEN 1: ONBOARDING (START-BILDSCHIRM)    -->
+    <!-- ========================================== -->
+    <div id="screen-onboarding" class="screen active w-full max-w-md flex-col p-6 items-center justify-center h-full">
+        <div class="text-green-500 text-6xl mb-6 font-bold">🦉</div>
+        <h1 class="text-3xl font-bold mb-2">Willkommen bei CodeLingo</h1>
+        <p class="text-gray-400 mb-8 text-center">Lerne die Sprache der Zukunft.</p>
+
+        <div class="w-full">
+            <label class="text-sm text-gray-400 mb-1 block">Wähle deinen Benutzernamen</label>
+            <input type="text" id="input-username" placeholder="z.B. Lin" class="w-full bg-[#202F36] p-4 rounded-xl mb-4 outline-none border-2 border-transparent focus:border-green-500">
+
+            <label class="text-sm text-gray-400 mb-1 block">Was willst du lernen?</label>
+            <select id="input-language" class="w-full bg-[#202F36] p-4 rounded-xl mb-8 outline-none border-2 border-transparent focus:border-green-500 appearance-none">
+                <option value="Python">Python 🐍</option>
+                <option value="JavaScript">JavaScript ⚡</option>
+                <option value="C++">C++ ⚙️</option>
+                <option value="Spanisch">Spanisch 🇪🇸 (Natürliche Sprache)</option>
+            </select>
+
+            <button onclick="registerUser()" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl border-b-4 border-[#46a302] btn-push mb-4">
+                LOS GEHT'S
+            </button>
+            <button onclick="alert('In der echten App würdest du dich hier einloggen.')" class="w-full bg-transparent text-green-500 font-bold py-4 rounded-xl">
+                ICH HABE SCHON EINEN ACCOUNT
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SCREEN 2: HAUPT-APP (LERNPFAD)             -->
+    <!-- ========================================== -->
+    <div id="screen-main" class="screen w-full max-w-md flex-col h-full bg-[#131F24]">
+        <!-- Header -->
+        <header class="p-4 flex justify-between items-center border-b border-gray-800">
+            <div class="text-xl font-bold text-green-500">CodeLingo</div>
+            <div class="flex items-center gap-4">
+                <!-- Herzen Anzeige -->
+                <div class="flex items-center gap-1 text-red-500 font-bold">
+                    <span id="heart-icon">❤️</span>
+                    <span id="heart-count">5</span>
+                </div>
+                <!-- Profil Button -->
+                <button onclick="openProfile()" id="avatar-btn" class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center font-bold">
+                    L
+                </button>
+            </div>
+        </header>
+
+        <!-- Lernpfad -->
+        <main class="flex-1 p-4 flex flex-col items-center overflow-y-auto pb-24">
+            <div class="bg-[#202F36] p-4 rounded-xl w-full border-b-4 border-[#2e424d] mb-8">
+                <h2 class="text-green-500 font-bold text-sm">STUFE 1, ABSCHNITT 1</h2>
+                <h1 id="lesson-title" class="text-xl font-bold">Einführung in die Sprache</h1>
+            </div>
+            
+            <!-- Fake Pfad Buttons -->
+            <div class="flex flex-col gap-6 items-center">
+                <div class="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center cursor-pointer shadow-[0_5px_0_0_#46a302]">
+                    <span class="text-3xl">⭐</span>
+                </div>
+                <div class="w-16 h-16 bg-[#202F36] rounded-full flex items-center justify-center shadow-[0_5px_0_0_#1a252b]">
+                    <span class="text-2xl opacity-50">📖</span>
+                </div>
+                <div class="w-20 h-20 bg-[#202F36] rounded-full flex items-center justify-center shadow-[0_5px_0_0_#1a252b]">
+                    <span class="text-3xl opacity-50">⭐</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SCREEN 3: PROFIL                           -->
+    <!-- ========================================== -->
+    <div id="screen-profile" class="screen absolute inset-0 bg-[#131F24] z-40 w-full max-w-md mx-auto flex-col h-full">
+        <header class="p-4 flex justify-between items-center border-b border-gray-800">
+            <h2 class="text-2xl font-bold">Profil</h2>
+            <button onclick="closeProfile()" class="text-gray-400 font-bold px-4 py-2">Schließen</button>
+        </header>
+        
+        <div class="flex-1 p-6 overflow-y-auto flex flex-col justify-between">
+            <div>
+                <div class="bg-[#202F36] p-4 rounded-xl mb-4">
+                    <p class="text-gray-400 text-sm">Benutzername</p>
+                    <p id="profile-username" class="text-xl font-bold">Lin</p>
+                </div>
+                
+                <div class="bg-[#202F36] p-4 rounded-xl">
+                    <p class="text-gray-400 text-sm">Du lernst</p>
+                    <p id="profile-language" class="text-xl font-bold text-blue-400">Python</p>
+                </div>
+            </div>
+
+            <!-- GANZ UNTEN IM PROFIL: DAS ZAHNRAD (Geheimer Einstieg) -->
+            <div class="flex justify-center pb-10 mt-20">
+                <button onclick="openCodeModal()" class="text-gray-600 hover:text-white transition-colors p-4 text-4xl">
+                    ⚙️
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 1: GEHEIMCODE EINGEBEN               -->
+    <!-- ========================================== -->
+    <div id="modal-code" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-4">
+        <div class="bg-[#131F24] p-8 rounded-2xl w-full max-w-sm border border-gray-700">
+            <h2 class="text-xl font-bold mb-4 text-center">Code eingeben</h2>
+            <input type="password" id="input-secret-code" placeholder="****" class="w-full bg-[#202F36] text-center text-2xl tracking-widest p-4 rounded-xl mb-4 outline-none border-2 border-transparent focus:border-green-500">
+            <button onclick="checkSecretCode()" class="w-full bg-green-500 text-white font-bold py-3 rounded-xl border-b-4 border-[#46a302] btn-push">
+                Bestätigen
+            </button>
+            <p id="code-error" class="text-red-500 text-center mt-4 text-sm hidden">Falscher Code!</p>
+            <button onclick="closeCodeModal()" class="w-full mt-4 text-gray-500 text-sm font-bold">Abbrechen</button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 2: ADMIN PANEL (Nur mit Code Z4WA)   -->
+    <!-- ========================================== -->
+    <div id="modal-admin" class="fixed inset-0 bg-black/95 z-50 hidden items-center justify-center p-4">
+        <div class="bg-[#131F24] p-8 rounded-2xl w-full max-w-sm border-2 border-red-500">
+            <div class="flex items-center gap-2 text-red-500 mb-6 justify-center">
+                <span class="text-3xl">🛡️</span>
+                <h2 class="text-xl font-bold">Admin Panel</h2>
+            </div>
+            
+            <label class="text-sm text-gray-400 mb-1 block">Benutzername (Muss existieren)</label>
+            <input type="text" id="admin-target-user" placeholder="z.B. Lin" class="w-full bg-[#202F36] p-3 rounded-xl outline-none mb-4 border border-transparent focus:border-red-500">
+            
+            <label class="text-sm text-gray-400 mb-1 block">Dauer (in Tagen)</label>
+            <input type="number" id="admin-duration" value="7" min="1" class="w-full bg-[#202F36] p-3 rounded-xl outline-none mb-6 border border-transparent focus:border-red-500">
+            
+            <button onclick="giveSuperStatus()" class="w-full bg-red-500 text-white font-bold py-3 rounded-xl border-b-4 border-red-700 btn-push">
+                Super-Status vergeben
+            </button>
+            <p id="admin-message" class="text-green-500 text-center mt-4 text-sm hidden"></p>
+            <button onclick="closeAdminModal()" class="w-full mt-4 text-gray-500 text-sm font-bold">Admin-Modus beenden</button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- JAVASCRIPT LOGIK (Simulierte Datenbank)    -->
+    <!-- ========================================== -->
+    <script>
+        // --- 1. SIMULIERTE DATENBANK (LocalStorage) ---
+        // In einer echten App wäre das eine echte Datenbank auf einem Server!
+        let database = JSON.parse(localStorage.getItem('codelingo_users')) || [];
+        let currentUser = JSON.parse(localStorage.getItem('codelingo_current_user')) || null;
+
+        const SECRET_CODE = "Z4WA"; // Hier ist dein geheimer Code
+
+        // --- 2. INITIALISIERUNG ---
+        function init() {
+            if (currentUser) {
+                showScreen('screen-main');
+                updateUI();
+            } else {
+                showScreen('screen-onboarding');
+            }
+        }
+
+        // Screen-Wechsel Logik
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        // --- 3. ONBOARDING / REGISTRIERUNG ---
+        function registerUser() {
+            const username = document.getElementById('input-username').value.trim();
+            const language = document.getElementById('input-language').value;
+
+            if (!username) return alert("Bitte gib einen Benutzernamen ein!");
+
+            // Prüfen, ob Name schon existiert
+            if (database.find(u => u.username.toLowerCase() === username.toLowerCase())) {
+                return alert("Dieser Benutzername ist bereits vergeben!");
+            }
+
+            // Neuen User in "Datenbank" anlegen
+            const newUser = {
+                username: username,
+                language: language,
+                hearts: 5,
+                superUntil: null // Zeitstempel, bis wann unendlich Herzen gelten
+            };
+
+            database.push(newUser);
+            saveDB();
+
+            currentUser = newUser;
+            saveCurrentUser();
+
+            showScreen('screen-main');
+            updateUI();
+        }
+
+        // --- 4. UI AKTUALISIEREN ---
+        function updateUI() {
+            if (!currentUser) return;
+
+            // Avatar Buchstabe
+            document.getElementById('avatar-btn').innerText = currentUser.username[0].toUpperCase();
+            
+            // Titel der Lektion anpassen
+            document.getElementById('lesson-title').innerText = `Einführung in ${currentUser.language}`;
+
+            // Herzen prüfen
+            const now = new Date().getTime();
+            const isSuper = currentUser.superUntil && currentUser.superUntil > now;
+            
+            if (isSuper) {
+                document.getElementById('heart-count').innerText = "∞";
+                document.getElementById('heart-icon').classList.add('animate-pulse');
+            } else {
+                document.getElementById('heart-count').innerText = currentUser.hearts;
+                document.getElementById('heart-icon').classList.remove('animate-pulse');
+            }
+        }
+
+        // --- 5. PROFIL & GEHEIMCODE ---
+        function openProfile() {
+            if(!currentUser) return;
+            document.getElementById('profile-username').innerText = currentUser.username;
+            document.getElementById('profile-language').innerText = currentUser.language;
+            showScreen('screen-profile');
+        }
+
+        function closeProfile() {
+            showScreen('screen-main');
+        }
+
+        function openCodeModal() {
+            document.getElementById('modal-code').classList.remove('hidden');
+            document.getElementById('modal-code').classList.add('flex');
+            document.getElementById('input-secret-code').value = "";
+            document.getElementById('code-error').classList.add('hidden');
+        }
+
+        function closeCodeModal() {
+            document.getElementById('modal-code').classList.add('hidden');
+            document.getElementById('modal-code').classList.remove('flex');
+        }
+
+        function checkSecretCode() {
+            const input = document.getElementById('input-secret-code').value;
+
+            if (input === SECRET_CODE) {
+                // Code richtig! Aktuellen User für 7 Tage unendlich Herzen geben
+                const oneWeek = 7 * 24 * 60 * 60 * 1000;
+                currentUser.superUntil = new Date().getTime() + oneWeek;
+                
+                updateUserInDB();
+                updateUI();
+                closeCodeModal();
+                closeProfile();
+                
+                // Admin Panel öffnen
+                document.getElementById('modal-admin').classList.remove('hidden');
+                document.getElementById('modal-admin').classList.add('flex');
+                document.getElementById('admin-message').classList.add('hidden');
+                
+            } else {
+                // Code falsch
+                document.getElementById('code-error').classList.remove('hidden');
+            }
+        }
+
+        // --- 6. ADMIN FUNKTIONEN (Andere User unendlich machen) ---
+        function closeAdminModal() {
+            document.getElementById('modal-admin').classList.add('hidden');
+            document.getElementById('modal-admin').classList.remove('flex');
+        }
+
+        function giveSuperStatus() {
+            const targetName = document.getElementById('admin-target-user').value.trim();
+            const days = parseInt(document.getElementById('admin-duration').value);
+            const msgEl = document.getElementById('admin-message');
+
+            if (!targetName || isNaN(days) || days < 1) {
+                msgEl.innerText = "Bitte Name und gültige Tage eingeben!";
+                msgEl.className = "text-red-500 text-center mt-4 text-sm block";
+                return;
+            }
+
+            // Suchen des Users in der "Datenbank"
+            const userIndex = database.findIndex(u => u.username.toLowerCase() === targetName.toLowerCase());
+
+            if (userIndex === -1) {
+                msgEl.innerText = `User "${targetName}" nicht gefunden!`;
+                msgEl.className = "text-red-500 text-center mt-4 text-sm block";
+            } else {
+                // Unendlich Herzen setzen
+                const ms = days * 24 * 60 * 60 * 1000;
+                database[userIndex].superUntil = new Date().getTime() + ms;
+                
+                // Wenn der Admin sich selbst updated, UI anpassen
+                if (database[userIndex].username === currentUser.username) {
+                    currentUser = database[userIndex];
+                    saveCurrentUser();
+                    updateUI();
+                }
+                
+                saveDB();
+                msgEl.innerText = `Erfolg! ${targetName} hat für ${days} Tage unendlich Herzen.`;
+                msgEl.className = "text-green-500 text-center mt-4 text-sm block";
+                document.getElementById('admin-target-user').value = "";
+            }
+        }
+
+        // --- 7. HILFSFUNKTIONEN (Speichern im Browser) ---
+        function saveDB() {
+            localStorage.setItem('codelingo_users', JSON.stringify(database));
+        }
+        function saveCurrentUser() {
+            localStorage.setItem('codelingo_current_user', JSON.stringify(currentUser));
+        }
+        function updateUserInDB() {
+            const index = database.findIndex(u => u.username === currentUser.username);
+            if (index !== -1) {
+                database[index] = currentUser;
+                saveDB();
+                saveCurrentUser();
+            }
+        }
+
+        // Start der App
+        init();
+
+    </script>
+</body>
+</html>
